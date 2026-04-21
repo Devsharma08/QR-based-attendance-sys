@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  DIRECTOR
+  HOD
+  TEACHER
+  STUDENT
+}
+
+model User {
+  // primary identifiers
+  id    String @id
+  email String @unique
+  name  String
+  role  Role   @default(STUDENT)
+
+  // organizational database
+  department String? // nullable for director
+
+  // student specific
+  rollNumber String? @unique
+
+  // security and hardware binding
+  deviceId      String?   @unique
+  deviceBoundAt DateTime?
+
+  // timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // reverse relations
+  timetables Timetable[]
+
+  attendances Attendance[]
+}
+
+enum DaysOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model Subject {
+  id         String @id @default(uuid())
+  code       String @unique
+  name       String
+  department String
+
+  // reverse relations
+  timetable Timetable[]
+}
+
+model Room {
+  id        String @id @default(uuid())
+  name      String @unique
+  qrPayload String @unique // static string embedded in QR
+
+  // reverse relations
+  timetable Timetable[]
+}
+
+model Timetable {
+  id        String     @id @default(uuid())
+  dayOfWeek DaysOfWeek
+  startTime String
+  endTime   String
+
+  // relations
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  sessions Session[]
+}
+
+enum SessionStatus {
+  ACTIVE
+  ENDED
+}
+
+model Session {
+  id     String        @id @default(uuid())
+  date   DateTime      @default(now())
+  status SessionStatus @default(ACTIVE)
+
+  timetableId String
+  timetable   Timetable @relation(fields: [timetableId], references: [id])
+
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attendance {
+  id       String   @id @default(uuid())
+  markedAt DateTime @default(now())
+
+  // links to specific class 
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id])
+
+  // who marked it
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
+
+  // SECURITY: This ensures a student cannot be marked present twice in the same class
+  @@unique([studentId, sessionId])
+}
