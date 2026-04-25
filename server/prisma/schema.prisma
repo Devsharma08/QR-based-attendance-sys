@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,34 +15,76 @@ enum Role {
   STUDENT
 }
 
-model User {
-  // primary identifiers
-  id    String @id
-  email String @unique
-  name  String
-  role  Role   @default(STUDENT)
+// --- CORE ORGANIZATIONAL STRUCTURE ---
 
-  // organizational database
-  department String? // nullable for director
-
-  // student specific
-  rollNumber String? @unique
-
-  // security and hardware binding
-  deviceId      String?   @unique
-  deviceBoundAt DateTime?
-
-  // timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // reverse relations
-  timetables Timetable[]
-
-  attendances Attendance[]
+model Department {
+  id       String    @id @default(uuid())
+  name     String    @unique // e.g. "Computer Science & Engineering"
+  
+  users    User[]    // All students and faculty belong to a home department
+  rooms    Room[]    // Labs/Rooms controlled by this department
+  subjects Subject[] // Courses offered by this department
 }
 
-enum DaysOfWeek {
+model Room {
+  id           String     @id @default(uuid())
+  name         String     @unique // e.g. "L201"
+  qrPayload    String     @unique // The physical QR code sticker
+  capacity     Int        @default(60) // To ensure HOD doesn't overbook the room!
+  
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  
+  timetables   Timetable[]
+}
+
+model Subject {
+  id           String     @id @default(uuid())
+  code         String     @unique // e.g. "TCS-601"
+  name         String
+  
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  // Many-to-Many Relations handled magically by Prisma!
+  qualifiedTeachers User[] @relation("TeacherSubjects")
+  enrolledStudents  User[] @relation("StudentSubjects")
+
+  timetables   Timetable[]
+}
+
+// --- USER MANAGEMENT ---
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  name     String
+  role     Role   @default(STUDENT)
+  batch    String? // for students only
+
+  // Hardware Locking for Students
+  deviceId      String? @unique
+  deviceBoundAt DateTime?
+
+  // Relations
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  // A Teacher/HOD can teach many subjects
+  taughtSubjects Subject[] @relation("TeacherSubjects")
+  
+  // A Student can be enrolled in many subjects
+  enrolledSubjects Subject[] @relation("StudentSubjects")
+
+  // Timetables where this user is the Teacher
+  timetables    Timetable[]
+  attendances   Attendance[]
+}
+
+// --- SCHEDULING & ATTENDANCE ---
+
+enum DayOfWeek {
   MONDAY
   TUESDAY
   WEDNESDAY
@@ -57,75 +94,52 @@ enum DaysOfWeek {
   SUNDAY
 }
 
-model Subject {
-  id         String @id @default(uuid())
-  code       String @unique
-  name       String
-  department String
-
-  // reverse relations
-  timetable Timetable[]
-}
-
-model Room {
-  id        String @id @default(uuid())
-  name      String @unique
-  qrPayload String @unique // static string embedded in QR
-
-  // reverse relations
-  timetable Timetable[]
-}
-
 model Timetable {
-  id        String     @id @default(uuid())
-  dayOfWeek DaysOfWeek
-  startTime String
+  id        String    @id @default(uuid())
+  dayOfWeek DayOfWeek
+  startTime String 
   endTime   String
+  batch     String? // for students only
 
-  // relations
   subjectId String
   subject   Subject @relation(fields: [subjectId], references: [id])
 
   teacherId String
-  teacher   User   @relation(fields: [teacherId], references: [id])
+  teacher   User    @relation(fields: [teacherId], references: [id])
 
-  roomId String
-  room   Room   @relation(fields: [roomId], references: [id])
+  roomId    String
+  room      Room    @relation(fields: [roomId], references: [id])
 
-  sessions Session[]
-}
+  sessions  Session[]
 
-enum SessionStatus {
-  ACTIVE
-  ENDED
+  // SECURITY: Prevent Double Booking!
+  // A Teacher cannot be in two places at once.
+  @@unique([teacherId, dayOfWeek, startTime])
+  // A Room cannot host two classes at once.
+  @@unique([roomId, dayOfWeek, startTime])
 }
 
 model Session {
-  id     String        @id @default(uuid())
-  date   DateTime      @default(now())
-  status SessionStatus @default(ACTIVE)
+  id          String   @id @default(uuid())
+  status      String   @default("ACTIVE") // ACTIVE, CLOSED
+  startedAt   DateTime @default(now())
 
   timetableId String
   timetable   Timetable @relation(fields: [timetableId], references: [id])
 
   attendances Attendance[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Attendance {
   id       String   @id @default(uuid())
   markedAt DateTime @default(now())
 
-  // links to specific class 
   sessionId String
   session   Session @relation(fields: [sessionId], references: [id])
 
-  // who marked it
   studentId String
   student   User   @relation(fields: [studentId], references: [id])
 
-  // SECURITY: This ensures a student cannot be marked present twice in the same class
+  // SECURITY: A student cannot be marked present twice in the same class
   @@unique([studentId, sessionId])
 }

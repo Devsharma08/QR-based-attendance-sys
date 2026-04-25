@@ -1,121 +1,75 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BarChart, Calendar, QrCode, ClipboardList } from "lucide-react";
 
-function App() {
-  const [count, setCount] = useState(0)
+import DirectorDashboard from "./components/director/DirectorDashboard";
+import HodDashboard from "./components/hod/HodDashboard";
+import TeacherDashboard from "./components/teacher/TeacherDashboard";
+import StudentScanner from "./components/student/StudentDashboard";
+import Auth from './components/Auth';
+import { useState,useEffect } from "react";
+// import { useNavigate } from "react-router-dom";
 
+const App = () => {
+
+  const [session, setSession] = useState<any>(null);
+  // const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem('qr_token');
+    const savedUser = localStorage.getItem('qr_user');
+    if (savedToken && savedUser) {
+      setSession({ token:savedToken, user:JSON.parse(savedUser) });
+    }
+  }, []);
+
+  if(!session){
+    return <Auth onAuthSuccess={(data)=>{setSession(data)}} />
+  }
+
+  const userRole = session.user.role;
+
+  if (session && !location.pathname.includes(`/${userRole.toLowerCase()}`)) {
+    window.location.replace(`/${userRole.toLowerCase()}`);
+  }
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('qr_token');
+    localStorage.removeItem('qr_user');
+    setSession(null);
+  }
+  
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <BrowserRouter>
+       <nav className="p-4 bg-slate-900 text-white flex justify-between items-center">
+        <div className="flex gap-6">
+        {userRole === "DIRECTOR" && <Link to="/director" className="flex items-center gap-2 hover:text-blue-400"> <BarChart size={18} /> Director </Link>}
+        {userRole === "HOD" && <Link to="/hod" className="flex items-center gap-2 hover:text-blue-400"> <Calendar size={18} /> HOD </Link>}
+        {userRole === "TEACHER" && <Link to="/teacher" className="flex items-center gap-2 hover:text-blue-400"> <ClipboardList size={18} /> Teacher </Link>}
+        {userRole==="STUDENT" && <Link to="/student" className="flex items-center gap-2 hover:text-blue-400"> <QrCode size={18} /> Student Scanner</Link>}
         </div>
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+          <span className="text-gray-300 mr-4">
+            {session?.user?.name} ({userRole})
+          </span>
+          <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600">
+            Logout
+          </button>
         </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </nav>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <main>
+        <Routes>
+          <Route path="/auth" element={<Auth onAuthSuccess={() => { }} />} />
+          <Route path="/director" element={<DirectorDashboard />} />
+          <Route path="/hod" element={<HodDashboard />} />
+          <Route path="/teacher" element={<TeacherDashboard />} />
+          <Route path="/student" element={<StudentScanner />} />
+        </Routes>
+      </main>
+    </BrowserRouter>
   )
 }
 
-export default App
+
+export default App;
