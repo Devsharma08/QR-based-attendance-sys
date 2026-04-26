@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Building, BookOpen, Calendar, CheckCircle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
+import Select from 'react-select';
 
 
 const HodDashboard = () => {
   const [activeTab, setActiveTab] = useState<'ROOM' | 'SUBJECT' | 'TIMETABLE' | 'MASTER_TIMETABLE'>('ROOM');
   const [statusMsg, setStatusMsg] = useState('');
   const [timeTable, setTimeTable] = useState<any[]>([]);
+  const [isEditSubject, setIsEditSubject] = useState(false);
+  const [editSubjectId, setEditSubjectId] = useState<string | null>(null);
 
+    // Search States
+  const [searchRoom, setSearchRoom] = useState('');
+  const [searchSubject, setSearchSubject] = useState('');
+  const [searchTimetable, setSearchTimetable] = useState('');
+  const [searchTeacherForm,setSearchTeacherForm] = useState('');
+  const [searchRoomForm,setSearchRoomForm] = useState('');
+  const [searchSubjectForm,setSearchSubjectForm] = useState('');
+  
 
   // Data for smart dropdowns
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -96,6 +107,46 @@ const HodDashboard = () => {
     }
   }
 
+  const handleDeleteSubject =async(subjectId:string,departmentId:string) => {
+    // making sure the user is sure about deleting the subject
+    if (!window.confirm("Are you sure you want to delete this subject?")) return;
+    try{
+      const res = await fetch(`http://localhost:5000/api/hod/subjects/${subjectId}?departmentId=${departmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        setStatusMsg("Subject deleted successfully");
+        // deleting the subject from the state variable
+        setSubjects(subjects.filter((subject) => subject.id !== subjectId));
+      } else {
+        const errorData = await res.json();
+        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
+      }
+    }catch(error){
+      setStatusMsg("Error: Failed to delete subject");
+    }
+  }
+
+  const handleEditSubject =async (subject:any) => {
+    // console.log("This is the subject",subject);
+    // here in the edit modal i want to set the value of each element according to the subject object
+    setIsEditSubject(true);
+    setEditSubjectId(subject.id);
+    Object.entries(subject).forEach(([key,value]:[string,any]) => {
+      
+      // conditional checks  
+      if(key=='name'|| key=='code'){
+        (document.getElementById(key) as HTMLInputElement).value = value;
+        // console.log(key,value);
+      }
+    })
+
+  }
+
   const query = `?departmentId=${departmentId}`;
     const headers = {
       'Authorization': `Bearer ${token}`,
@@ -130,15 +181,14 @@ const HodDashboard = () => {
 
     const formData = new FormData(e.target as HTMLFormElement);
     const payload = Object.fromEntries(formData.entries());
-
-    // Automatically attach the HOD's departmentId to Rooms and Subjects!
-    if (endpoint === 'rooms' || endpoint === 'subjects') {
-      payload.departmentId = departmentId;
+    let method = 'POST';
+    if(isEditSubject){
+      method = 'PATCH';
+      payload.id = editSubjectId;
     }
-
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/${endpoint}`, {
-        method: 'POST',
+      const res = await fetch(`http://localhost:5000/api/hod/${endpoint}?departmentId=${departmentId}`, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -150,8 +200,22 @@ const HodDashboard = () => {
         setStatusMsg(`Success! Saved ${endpoint} to database.`);
         (e.target as HTMLFormElement).reset(); // Clear the form
         // get all rooms
-        const roomsRes = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers });
-        if (roomsRes.ok) setRooms(await roomsRes.json());
+        if(endpoint==="rooms"){
+          const roomsRes = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers });
+          if (roomsRes.ok) setRooms(await roomsRes.json());
+        }else if(endpoint==="subjects"){
+          const subjectsRes = await fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers });
+          if (subjectsRes.ok) setSubjects(await subjectsRes.json());
+          setIsEditSubject(false);
+          setEditSubjectId(null);
+        }else if(endpoint==="teachers"){
+          const teachersRes = await fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers });
+          if (teachersRes.ok) setTeachers(await teachersRes.json());
+        }else if(endpoint==="timetable"){
+          const timeTableRes = await fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers });
+          if (timeTableRes.ok) setTimeTable(await timeTableRes.json());
+        }
+        
       } else {
         const errorData = await res.json();
         setStatusMsg(`Error: ${errorData.message || errorData.error}`);
@@ -208,7 +272,19 @@ const HodDashboard = () => {
           activeTab === 'MASTER_TIMETABLE' && (
             <>
               <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <h3 className="text-xl font-semibold text-slate-800 mb-4 border-t pt-8">Current Master Schedule</h3>
+
+                {/* search menu start*/}
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 border-t pt-8 gap-4">
+                  <h3 className="text-xl font-semibold text-slate-800">Current Master Schedule</h3>
+                  <input 
+                    type="text" 
+                    placeholder="Search teacher, room, subject, or day..." 
+                    value={searchTimetable}
+                    onChange={(e) => setSearchTimetable(e.target.value)}
+                    className="p-2 px-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-80 text-sm"
+                  />
+                </div>
+
 
                 {timeTable.length === 0 ? (
                   <div className="text-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-500">
@@ -229,7 +305,7 @@ const HodDashboard = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {timeTable.map((t, idx) => (
+                        {timeTable.filter((t)=> (t.subject?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.teacher?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.room?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.dayOfWeek.toLowerCase().includes(searchTimetable.toLowerCase()) || t.startTime.toLowerCase().includes(searchTimetable.toLowerCase()) || t.endTime.toLowerCase().includes(searchTimetable.toLowerCase()))).map((t, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 transition-colors">
                             <td className="p-4 font-medium text-slate-700">{t.dayOfWeek}</td>
                             <td className="p-4">{t.startTime} - {t.endTime}</td>
@@ -332,21 +408,53 @@ const HodDashboard = () => {
         </div>
         )}
 
-        {/* SUBJECT FORM */}
+        {/* SUBJECT FORM & LIST */}
         {activeTab === 'SUBJECT' && (
-          <form onSubmit={(e) => handleSubmit(e, 'subjects')} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-xl font-semibold text-slate-800 mb-4">Register a Course</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
-              <input name="code" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. TCS-601" />
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <form onSubmit={(e) => handleSubmit(e, 'subjects')} className="space-y-5">
+              <h3 className="text-xl font-semibold text-slate-800 mb-4">Register a Course</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                <input name="code" id='code' required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. TCS-601" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
+                <input name="name" id='name' required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. Data Structures" />
+              </div>
+              <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">{isEditSubject ? "Update Subject" : "Create Subject"}</button>
+            </form>
+
+            {/* List of Existing Subjects */}
+            <div className="border-t border-gray-100 pt-8">
+              <h3 className="text-xl font-semibold text-slate-800 mb-6">Existing Subjects</h3>
+              {subjects.length === 0 ? (
+                <div className="text-gray-500 italic text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  No subjects registered yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {subjects.map((sub: any) => (
+                    <div key={sub.id} className="border border-gray-200 p-5 rounded-2xl bg-white flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
+                      <div>
+                        <h4 className="font-bold text-lg text-slate-800">{sub.code}</h4>
+                        <p className="text-sm text-gray-500">{sub.name}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditSubject(sub)} className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteSubject(sub.id, sub.departmentId)} className="px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
-              <input name="name" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. Data Structures" />
-            </div>
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">Create Subject</button>
-          </form>
+          </div>
         )}
+
 
         {/* TIMETABLE FORM */}
         {activeTab === 'TIMETABLE' && (
@@ -371,30 +479,42 @@ const HodDashboard = () => {
                 <input name="endTime" type="time" required className="w-full p-3 bg-gray-50 border rounded-xl outline-none" />
               </div>
             </div>
-
+            {/* TEACHER DROPDOWN */}
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Teacher</label>
-              <select name="teacherId" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                <option value="" disabled selected>-- Choose a Teacher --</option>
-                {teachers.map(t => <option key={t.id} value={t.id}>{t.name} ({t.email})</option>)}
-              </select>
+              <Select 
+                name="teacherId"
+                options={teachers.map(t => ({ value: t.id, label: `${t.name} (${t.email})` }))}
+                placeholder="Search and select a teacher..."
+                className="text-sm rounded-xl"
+                required
+              />
             </div>
 
+            {/* SUBJECT DROPDOWN */}
             <div className="col-span-2 md:col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Subject</label>
-              <select name="subjectId" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                <option value="" disabled selected>-- Choose Subject --</option>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
-              </select>
+              <Select 
+                name="subjectId"
+                options={subjects.map((s: any) => ({ value: s.id, label: `${s.name} (${s.code})` }))}
+                placeholder="Search subjects..."
+                className="text-sm rounded-xl"
+                required
+              />
             </div>
 
+            {/* ROOM DROPDOWN */}
             <div className="col-span-2 md:col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Room</label>
-              <select name="roomId" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                <option value="" disabled selected>-- Choose Room --</option>
-                {rooms.map(r => <option key={r.id} value={r.id}>{r.name} (Cap: {r.capacity})</option>)}
-              </select>
+              <Select 
+                name="roomId"
+                options={rooms.map(r => ({ value: r.id, label: `${r.name} (Cap: ${r.capacity})` }))}
+                placeholder="Search rooms..."
+                className="text-sm rounded-xl"
+                required
+              />
             </div>
+
 
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch (Optional)</label>

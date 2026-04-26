@@ -229,7 +229,9 @@ router.delete('/rooms/:roomId',async(req:Request,res:Response)=>{
 
 // create a specific subject
 router.post('/subjects', async (req: Request, res: Response) => {
-  const { code, name, departmentId } = req.body;
+  const { code, name } = req.body;
+  const departmentId = req.query.departmentId as string;
+  
   if (!code || !name || !departmentId) {
     return res.status(400).json({ message: "Code, name and departmentId are required" });
   }
@@ -241,6 +243,116 @@ router.post('/subjects', async (req: Request, res: Response) => {
     }
   })
   res.json(subject);
+})
+
+// update a subject
+router.patch('/subjects',async(req:Request,res:Response)=>{
+  const {code,name,id} = req.body;
+  const departmentId = req.query.departmentId as string;
+
+  
+  if(!departmentId || !code || !name || !id){
+    return res.status(400).json({ message: "departmentId, code and name are required" });
+  }
+  try{
+    // check if subject is in the department
+    let subject = await prisma.subject.findUnique({
+      where: {
+        id: id
+      }
+    });
+
+    if(!subject){
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    if(subject.departmentId !== departmentId){
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    subject = await prisma.subject.update({
+      where: {
+        id: id
+      },
+      data: {
+        code,
+        name,
+        departmentId
+      }
+    })
+
+    res.status(200).json(subject);
+  }catch(error){
+    console.log("subject error:", error);
+    res.status(500).json({ error: "Failed to update subject" });
+  }
+})
+
+// delete a subject
+router.delete('/subjects/:subjectId',async(req:Request,res:Response)=>{
+  const subjectId = req.params.subjectId as string;
+  const departmentId = req.query.departmentId as string;
+
+  if(!departmentId){
+    return res.status(400).json({ message: "departmentId is required" });
+  }
+  try{
+    // check if subject is in the department
+    let subject = await prisma.subject.findUnique({
+      where: {
+        id: subjectId
+      }
+    });
+
+    if(!subject){
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    if(subject.departmentId !== departmentId){
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    await prisma.subject.delete({
+      where: {
+        id: subjectId
+      }
+    })
+
+    res.status(200).json({message:"Subject deleted successfully"});
+  }catch(error){
+    console.log("subject error:", error);
+    res.status(500).json({ error: "Failed to delete subject" });
+  }
+})
+
+// get all subjects of all departments
+router.get('/subjects/all',async(req:Request,res:Response)=>{
+  try {
+    const subjects = await prisma.subject.findMany();
+    res.json(subjects);
+  } catch (error) {
+    console.log("subjects error:", error);
+    res.status(500).json({ error: "Failed to fetch subjects" });
+  }
+})
+
+// get all subjects of a particular department
+router.get('/subjects',async(req:Request,res:Response)=>{
+  const departmentId = req.query.departmentId as string;
+  if(!departmentId){
+    return res.status(400).json({ message: "departmentId is required" });
+  }
+  try {
+    const subjects = await prisma.subject.findMany({
+      where: {
+        departmentId
+      }
+    });
+    res.json(subjects);
+  } catch (error) {
+    console.log("subjects error:", error);
+    res.status(500).json({ error: "Failed to fetch subjects" });
+  }
 })
 
 // get all teachers of a department + extra common teachers
