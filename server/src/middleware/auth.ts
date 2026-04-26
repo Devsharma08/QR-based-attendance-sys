@@ -11,15 +11,21 @@ export interface authRequest extends Request{
 // the bouncer
 export const verifyToken = async(req:authRequest,res:Response,next:NextFunction)=>{
     try {
+        let authToken:string =  "";
         const token = req.headers.authorization;
-        if(token && !token?.startsWith('Bearer')){
-         return res.status(401).json({message:'Authorization token missing or malformed.'});   
+        if(token && token?.startsWith('Bearer') && token?.split(' ')[1] !== ''){
+         authToken = token.split(' ')[1];
+        } else{
+            const queryToken = req.query.token  as string;
+            if (queryToken && queryToken.trim() !== ''){
+                authToken = queryToken.trim();
+            }
         }
 
-        const authToken = token?.split(' ')[1];
         if (!authToken){
             return res.status(401).json({message:'Authorization token missing or malformed.'});   
         }
+
 
         jwt.verify(authToken,jwtSecret,(err,decodedUser)=>{
          if(err){
