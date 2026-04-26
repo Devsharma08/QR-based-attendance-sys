@@ -19,7 +19,7 @@ router.post('/rooms', async (req: Request, res: Response) => {
     data: {
       name,
       qrPayload,
-      capacity: capacity || 60,
+      capacity: capacity ? parseInt(capacity,10) : 60,
       departmentId
     }
   })
@@ -191,6 +191,38 @@ router.delete('/timetable', async (req: Request, res: Response) => {
   }catch(error){
     console.log("timetable error:", error);
     res.status(500).json({ error: "Failed to delete timetable" });
+  }
+})
+
+// delete the room 
+router.delete('/rooms/:roomId',async(req:Request,res:Response)=>{
+  const roomId = req.params.roomId as string;
+  const departmentId = req.query.departmentId as string;
+
+  try{
+    const room = await prisma.room.findUnique({
+      where: {
+        id: roomId as string
+      }
+    });
+
+  if(!room){
+    return res.status(404).json({ message: "Room not found" });
+  }
+  if(room.departmentId !== departmentId){
+    return res.status(403).json({ message: "Room not found" });
+  }
+
+  await prisma.room.delete({
+    where: {
+      id: roomId as string
+    }
+  })
+  
+   res.json({ message: "Room deleted successfully" });
+  }catch(error){
+     console.error("error deleting room:",error);
+    return res.status(500).json({message:"internal server error"})
   }
 })
 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Building, BookOpen, Calendar, CheckCircle } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
+
 
 const HodDashboard = () => {
   const [activeTab, setActiveTab] = useState<'ROOM' | 'SUBJECT' | 'TIMETABLE' | 'MASTER_TIMETABLE'>('ROOM');
@@ -11,6 +13,8 @@ const HodDashboard = () => {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+
+  // console.log("rooms",Object.entries(rooms));
 
   const token = localStorage.getItem('qr_token') || '';
   const user = JSON.parse(localStorage.getItem('qr_user') || '{}');
@@ -55,16 +59,54 @@ const HodDashboard = () => {
     }
   }
 
-  useEffect(() => {
-    // fetching the timetable from the backend
+  const handleDownloadQr = (roomId: string,roomName:string) => {
+    const canvas = document.getElementById(`qr-${roomId}`) as HTMLCanvasElement;
 
-    const fetchData =async() => {
+    const url = canvas.toDataURL("image/jpeg",0.92);
+    const link = document.createElement("a");
+    link.download = `${roomName}.jpeg`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+  }
 
-    const query = `?departmentId=${departmentId}`;
+  const handleDeleteRoom =async(roomId:string,departmentId:string) => {
+    // making sure the user is sure about deleting the room
+    if (!window.confirm("Are you sure you want to delete this room?")) return;
+    try{
+      const res = await fetch(`http://localhost:5000/api/hod/rooms/${roomId}?departmentId=${departmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        setStatusMsg("Room deleted successfully");
+        // deleting the room from the state variable
+        setRooms(rooms.filter((room) => room.id !== roomId));
+      } else {
+        const errorData = await res.json();
+        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
+      }
+    }catch(error){
+      setStatusMsg("Error: Failed to delete room");
+    }
+  }
+
+  const query = `?departmentId=${departmentId}`;
     const headers = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
+
+
+  useEffect(() => {
+    // fetching the timetable from the backend
+
+    const fetchData =async() => {
 
     const [teachersRes, roomsRes, subjectsRes, timeTableRes] = await Promise.all([
       fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers }),
@@ -107,6 +149,9 @@ const HodDashboard = () => {
       if (res.ok) {
         setStatusMsg(`Success! Saved ${endpoint} to database.`);
         (e.target as HTMLFormElement).reset(); // Clear the form
+        // get all rooms
+        const roomsRes = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers });
+        if (roomsRes.ok) setRooms(await roomsRes.json());
       } else {
         const errorData = await res.json();
         setStatusMsg(`Error: ${errorData.message || errorData.error}`);
@@ -220,8 +265,9 @@ const HodDashboard = () => {
           )
         }
 
-        {/* ROOM FORM */}
+        {/* ROOM FORM AND QR CODES*/}
         {activeTab === 'ROOM' && (
+          <div className='space-y-10 animation-in fade-in slide-in-from-bottom-4 duration-500'>
           <form onSubmit={(e) => handleSubmit(e, 'rooms')} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h3 className="text-xl font-semibold text-slate-800 mb-4">Register a Physical Room</h3>
             <div>
@@ -238,6 +284,52 @@ const HodDashboard = () => {
             </div>
             <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">Create Room</button>
           </form>
+          {/* qr code galary will be here */}
+          <div className='border-t border-gray-100 pt-8'>
+            <h3 className='text-xl font-semibold text-slate-800'>
+              Existing Rooms & Qr Codes
+            </h3>
+            {rooms.length===0 ? (
+                <div className="text-gray-500 italic text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  No rooms registered yet.
+                </div>
+            ):(<>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-6'>
+              {rooms.map((r,index)=>(
+                <div key={index} className='border border-gray-200 p-6 rouned-2xl flex flex-col items-center justify-center bg-gray-50 text-center gap-4 hover:shadow-md transition-shadow relative-group'>
+                  {/* QR code graphic */}
+                                   
+                  <div className='p-4 bg-white rounded-xl shadow-sm border border-gray-100 group-hover:scale-105 transition-transform duration-300'>
+                    <QRCodeCanvas id={`qr-${r.id}`} value={String(r.qrPayload)} size={140} fgColor="#1e293b" />
+                  </div>
+                  
+                  {/* Room Info */}
+                  <div>
+                    <h4 className="font-bold text-2xl text-slate-800">{r.name}</h4>
+                    <p className="text-sm text-gray-500 font-medium">Capacity: {r.capacity} students</p>
+                    <p className="text-xs text-gray-400 font-mono mt-2 bg-gray-200 px-2 py-1 rounded-md">
+                      {r.qrPayload}
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-2 w-full mt-2">
+                    <button onClick={() => handleDownloadQr(r.id, r.name)} className="flex-1 py-2 bg-indigo-100 text-indigo-700 font-bold text-sm rounded-lg hover:bg-indigo-200 transition-colors">
+                      Download
+                    </button>
+                    <button onClick={() => handleDeleteRoom(r.id,r.departmentId)} className="flex-1 py-2 bg-red-100 text-red-700 font-bold text-sm rounded-lg hover:bg-red-200 transition-colors">
+                      Delete
+                    </button>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+            </>)}
+          </div>
+          
+
+        </div>
         )}
 
         {/* SUBJECT FORM */}

@@ -13,8 +13,9 @@ export const verifyToken = async(req:authRequest,res:Response,next:NextFunction)
     try {
         let authToken:string =  "";
         const token = req.headers.authorization;
-        if(token && token?.startsWith('Bearer') && token?.split(' ')[1] !== ''){
-         authToken = token.split(' ')[1];
+    
+        if(token && token?.startsWith('Bearer')){
+            authToken = token.split(' ')[1];
         } else{
             const queryToken = req.query.token  as string;
             if (queryToken && queryToken.trim() !== ''){

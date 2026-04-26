@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 router.use(verifyToken);
 router.use(requiredRole(['STUDENT']));
 
+
 // scaning qr code
 router.post('/scan', async (req:Request, res:Response) => {
   const { studentId, qrPayload } = req.body;
@@ -91,6 +92,43 @@ router.post('/scan', async (req:Request, res:Response) => {
     console.error("Matchmaking error:", error);
     res.status(500).json({ error: "Failed to process scan." });
   }
+})
+
+// get student attendance history
+router.get('/history', async(req:Request,res:Response)=>{
+  const studentId = req.query.studentId as string;
+  try{
+    if(!studentId){
+      return res.status(400).json({
+        message: "studentId is required."
+      })
+    }
+
+    const history = await prisma.attendance.findMany({
+      where: {
+        studentId
+      },
+      include: {
+        session: {
+          include: {
+            timetable: {
+              include: { subject: true, teacher: true }
+            }
+          }
+        }
+      },
+      orderBy:{
+        markedAt:"desc"
+      }
+    })
+
+    res.status(200).json(history);
+    
+  } catch(error:any){
+    console.error("fetch history error:", error);
+    res.status(500).json({ error: "Failed to fetch attendance history." });
+  }
+
 })
 
 export default router;
