@@ -14,42 +14,31 @@ router.post('/scan', async (req:Request, res:Response) => {
 
   if (!studentId || !qrPayload) {
     return res.status(400).json({
-      message: "studentId, qrPayload, and a unique deviceId are strictly required."
+      message: "studentId and qrPayload are strictly required."
     })
   }
 
   try {
-
-    // first finding the student to check their device status
     const student = await prisma.user.findUnique({
       where: { id: studentId }
     });
 
     if(!student){
-      return res.status(404).json({
-        message: "Student not found."
-      })
+      return res.status(404).json({ message: "Student not found." })
     }
 
-    // finding in what room student physically standing on
     const room = await prisma.room.findUnique({
       where: { qrPayload }
     });
 
     if (!room) {
-      return res.status(404).json({
-        message: "Invalid or expired QR code."
-      })
+      return res.status(404).json({ message: "Invalid or expired QR code." })
     }
-
-    // find the active session currently happening inside that exact room.
 
     const activeSession = await prisma.session.findFirst({
       where: {
         status: "ACTIVE",
-        timetable: {
-          roomId: room.id
-        }
+        timetable: { roomId: room.id }
       },
       include: {
         timetable: {
@@ -59,17 +48,15 @@ router.post('/scan', async (req:Request, res:Response) => {
     })
 
     if (!activeSession) {
-      return res.status(404).json({ message: "No active class is running in this room right now. Did the teacher click Start?" });
+      return res.status(404).json({ message: "No active class is running in this room right now." });
     }
 
-    // batch security
     if(activeSession.timetable.batch && student.batch!==activeSession.timetable.batch){
       return res.status(403).json({ 
-        message: `ACCESS DENIED: This class is only for ${activeSession.timetable.batch}. You are in ${student.batch || 'no batch'}.` 
+        message: `ACCESS DENIED: This class is only for ${activeSession.timetable.batch}.` 
       });
     }
 
-    // mark the present
     const attendance = await prisma.attendance.create({
       data: {
         sessionId: activeSession.id,
@@ -78,18 +65,17 @@ router.post('/scan', async (req:Request, res:Response) => {
     })
 
     res.status(201).json({
-      message: "Attendance perfectly captured!",
+      message: "Attendance captured!",
       subjectName: activeSession.timetable.subject.name,
       teacherName: activeSession.timetable.teacher.name,
       attendanceRecord: attendance
     });
 
   } catch (error: any) {
-    // If Prisma throws 'P2002', it means our @@unique([studentId, sessionId]) safety constraint blocked a duplicate!
     if (error.code === 'P2002') {
-      return res.status(400).json({ message: "You are already marked present for this class. Stop scanning!" });
+      return res.status(400).json({ message: "You are already marked present for this class." });
     }
-    console.error("Matchmaking error:", error);
+    console.error("Scan error:", error);
     res.status(500).json({ error: "Failed to process scan." });
   }
 })
@@ -98,16 +84,12 @@ router.post('/scan', async (req:Request, res:Response) => {
 router.get('/history', async(req:Request,res:Response)=>{
   const studentId = req.query.studentId as string;
   try{
-    if(!studentId){
-      return res.status(400).json({
-        message: "studentId is required."
-      })
+    if(!studentId || studentId === "undefined"){
+      return res.status(400).json({ message: "Valid studentId is required." })
     }
 
     const history = await prisma.attendance.findMany({
-      where: {
-        studentId
-      },
+      where: { studentId },
       include: {
         session: {
           include: {
@@ -117,18 +99,77 @@ router.get('/history', async(req:Request,res:Response)=>{
           }
         }
       },
-      orderBy:{
-        markedAt:"desc"
-      }
+      orderBy:{ markedAt:"desc" }
     })
 
     res.status(200).json(history);
     
   } catch(error:any){
     console.error("fetch history error:", error);
-    res.status(500).json({ error: "Failed to fetch attendance history." });
+    res.status(500).json({ error: "Failed to fetch history." });
   }
+})
 
+// get student attendance summary for grid view (P/A)
+router.get('/summary', async (req: Request, res: Response) => {
+  const studentId = req.query.studentId as string;
+  console.log(`[SUMMARY] Request received for ID: "${studentId}"`);
+  
+  try {
+    if (!studentId || studentId === "undefined") {
+      console.error("[SUMMARY] Invalid studentId provided");
+      return res.status(400).json({ message: "Valid studentId is required." });
+    }
+
+    const student = await prisma.user.findUnique({
+      where: { id: studentId },
+      include: {
+        enrolledSubjects: {
+          select: { id: true, name: true, code: true }
+        }
+      }
+    });
+
+    if (!student) {
+      console.error(`[SUMMARY] Student with ID ${studentId} not found in database.`);
+      return res.status(404).json({ message: "Student not found in database." });
+    }
+
+    console.log(`[SUMMARY] Found student: ${student.name}. Enrolled in ${student.enrolledSubjects.length} subjects.`);
+
+    const subjectIds = student.enrolledSubjects.map(s => s.id);
+
+    const sessions = await prisma.session.findMany({
+      where: {
+        timetable: {
+          subjectId: { in: subjectIds },
+          batch: student.batch
+        },
+        status: "CLOSED"
+      },
+      include: {
+        timetable: true,
+        attendances: {
+          where: { studentId }
+        }
+      },
+      orderBy: { startedAt: "asc" }
+    });
+
+    res.status(200).json({
+      subjects: student.enrolledSubjects,
+      sessions: sessions.map(s => ({
+        id: s.id,
+        date: s.startedAt,
+        subjectId: s.timetable.subjectId,
+        present: s.attendances.length > 0
+      }))
+    });
+
+  } catch (error: any) {
+    console.error("Summary error:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
 })
 
 
