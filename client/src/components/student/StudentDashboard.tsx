@@ -35,6 +35,7 @@ const StudentDashboard = () => {
   // QR Scanner Logic
   useEffect(() => {
     let scanner: Html5QrcodeScanner | null = null;
+    let isProcessing = false; // Add a flag to block spam frames!
 
     if (activeTab === 'SCAN') {
       scanner = new Html5QrcodeScanner("reader", {
@@ -43,7 +44,15 @@ const StudentDashboard = () => {
       }, false);
 
       const onScanSuccess = async (decodedText: string) => {
-        if (scanner) scanner.pause(); // stop spamming
+        if (isProcessing) return; // Instantly block duplicate frames
+        isProcessing = true;
+
+        // Safely try to pause the camera (passing true freezes the video frame)
+        try {
+          if (scanner) scanner.pause(true); 
+        } catch (e) {
+          // console.warn("Scanner pause bypassed", e);
+        }
 
         setScanResult(decodedText);
         setMessage("Processing attendance...");
@@ -67,13 +76,29 @@ const StudentDashboard = () => {
           if (response.ok) {
             setStatus('SUCCESS');
             setMessage(`Present! ${data.subjectName} with ${data.teacherName}`);
+            // Note: We leave it paused here because they succeeded!
           } else {
             setStatus('ERROR');
             setMessage(data.message || "Failed to mark attendance");
+            
+            // If they failed (e.g. scanned wrong code), let them try again after 3 seconds
+            setTimeout(() => {
+              setStatus('IDLE');
+              setMessage('Ready to scan again...');
+              isProcessing = false;
+              try { if (scanner) scanner.resume(); } catch(e) {}
+            }, 3000);
           }
         } catch (error) {
           setStatus('ERROR');
           setMessage("Server is unreachable. Is the backend running?");
+          
+          setTimeout(() => {
+            setStatus('IDLE');
+            setMessage('Ready to scan again...');
+            isProcessing = false;
+            try { if (scanner) scanner.resume(); } catch(e) {}
+          }, 3000);
         }
       };
 
@@ -87,6 +112,7 @@ const StudentDashboard = () => {
       }
     };
   }, [activeTab]);
+
 
   return (
     <div className='max-w-2xl mx-auto mt-10 p-6 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col'>

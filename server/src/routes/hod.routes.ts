@@ -41,18 +41,12 @@ router.post('/timetable', async (req: Request, res: Response) => {
 
 
     // cheking if teacher already has another booking at the same time
-    const existingTeacherBooking = await prisma.user.findUnique({
+    const existingTeacherBooking = await prisma.timetable.findFirst({
       where: {
-        id: teacherId,
-        timetables: {
-          dayOfWeek: dayOfWeek,
-          startTime: {
-            gte: startTime
-          },
-          endTime: {
-            lte: endTime
-          }
-        }
+        teacherId: teacherId,
+        dayOfWeek: dayOfWeek,
+        startTime: { lt: endTime },
+        endTime: { gt: startTime }
       }
     })
 
@@ -61,18 +55,12 @@ router.post('/timetable', async (req: Request, res: Response) => {
     }
 
     // check duplicate booking
-    const existingBooking = await prisma.room.findUnique({
+    const existingBooking = await prisma.timetable.findFirst({
       where: {
-        id: roomId,
-        timetables: {
-          dayOfWeek: dayOfWeek,
-          startTime: {
-            gte: startTime
-          },
-          endTime: {
-            lte: endTime
-          }
-        }
+        roomId: roomId,
+        dayOfWeek: dayOfWeek,
+        startTime: { lt: endTime },
+        endTime: { gt: startTime }
       }
     })
 
