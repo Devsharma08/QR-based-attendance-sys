@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes';
 import hodRoutes from './routes/hod.routes';
 import teacherRoutes from './routes/teacher.routes'
 import studentRoutes from './routes/student.routes'
+import directorRoutes from './routes/director.routes'
 
 
 const app = express();
@@ -29,6 +30,9 @@ app.use('/api/teacher',teacherRoutes);
 
 // STUDENT ROUTES
 app.use('/api/student',studentRoutes);
+
+// DIRECTOR ROUTES
+app.use('/api/director', directorRoutes);
 
 
 // health check route
