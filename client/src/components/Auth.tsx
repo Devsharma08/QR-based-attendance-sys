@@ -1,13 +1,31 @@
-import React, { useState } from 'react';
-import { supabase } from '../supabase';
+import React, { useState,useEffect } from 'react';
 import { UserCircle, Loader2 } from 'lucide-react';
 
 const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
-   const [isLogin, setIsLogin] = useState(false);
+   const [isLogin, setIsLogin] = useState(() => {
+      const saved = localStorage.getItem('qr_auth_mode');
+      return saved ? saved === 'login' : true; // Default to login if not set
+   });
+
    const [loading, setLoading] = useState(false);
    const [message, setMessage] = useState("");
+   const [year,setYear] = useState(1);
    const [role,setRole]=useState("");
+
+   // Save choice to localStorage whenever it changes
+   useEffect(() => {
+      localStorage.setItem('qr_auth_mode', isLogin ? 'login' : 'signup');
+   }, [isLogin]);
    
+   const getSemester = (year:number)=>{
+    switch(year){
+      case 1: return [1,2];
+      case 2: return [3,4];
+      case 3: return [5,6];
+      case 4: return [7,8];
+      default: return [1,2];
+    }  
+   }
 
    const token = localStorage.getItem('qr_token') ?? "";
 
@@ -16,7 +34,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
       e.preventDefault();
 
       const formData = new FormData(e.currentTarget as HTMLFormElement);
-      const { name, email, password, role, department, batch } = Object.fromEntries(formData.entries());
+      const { name, email, password, role, department, batch,semester,year } = Object.fromEntries(formData.entries());
       // console.log(Object.fromEntries(formData.entries()));
 
       setLoading(true);
@@ -37,7 +55,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
                })
             });
             const data = await res.json();
-            if(!res.ok) throw new Error(data.error || "Login failed");
+            if(!res.ok) throw new Error(data.message || "Login failed");
          
             localStorage.setItem('qr_token', data.token);
             localStorage.setItem('qr_user', JSON.stringify(data.user));
@@ -47,6 +65,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
             setLoading(false);
          } else {
             setLoading(true);
+            const { contactNumber } = Object.fromEntries(formData.entries());
             const res = await fetch('http://localhost:5000/api/auth/signup',{
                method:'POST',
                headers:{
@@ -59,11 +78,14 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
                   name:name as string,
                   role:role as string,
                   password:password as string,
-            
+                  semester:semester as number,
+                  year:year as number,
+                  contactNumber:contactNumber as string
                })
             });
             const data = await res.json();
-            if(!res.ok) throw new Error(data.error || "Signup failed");
+            // console.log(data);
+            if(!res.ok) throw new Error(data.message || "Signup failed");
          
             localStorage.setItem('qr_token', data.token);
             localStorage.setItem('qr_user', JSON.stringify(data.user));
@@ -78,7 +100,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
       } finally {
          setLoading(false);
       }
-   }
+   }   
 
    return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -102,6 +124,10 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
                      <div>
                         <label className='block text-sm font-medium text-slate-700 mb-1'>Name</label>
                         <input required name="name" type="text" className='block w-full rounded-xl border border-slate-200 bg-gray-50 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500' placeholder="John Doe" />
+                     </div>
+                     <div>
+                        <label className='block text-sm font-medium text-slate-700 mb-1'>Contact Number</label>
+                        <input required name="contactNumber" type="tel" className='block w-full rounded-xl border border-slate-200 bg-gray-50 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500' placeholder="+91 98765 43210" />
                      </div>
                      <div>
                         <label className='block text-sm font-medium text-slate-700 mb-1'>Role</label>
@@ -131,6 +157,8 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
                      </div>
                      {
                         role === "STUDENT" && (
+                           <>
+                           {/* batch */}
                            <div>
                               <label className='block text-sm font-medium text-slate-700 mb-1'>Batch</label>
                               <select required name="batch"  className='block w-full rounded-xl border border-slate-200 bg-gray-50 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500' >
@@ -139,6 +167,28 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
                                  <option value="Group-2">Group-2</option>
                               </select>
                            </div>
+                           {/* year */}
+                           <div>
+                              <label className='block text-sm font-medium text-slate-700 mb-1'>Year</label>
+                              <select onChange={(e)=>setYear(parseInt(e.target.value))} required name="year"  className='block w-full rounded-xl border border-slate-200 bg-gray-50 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500' >
+                                 <option value="" disabled>Select Year</option>
+                                 <option value="1">1st Year</option>
+                                 <option value="2">2nd Year</option>
+                                 <option value="3">3rd Year</option>
+                                 <option value="4">4th Year</option>
+                              </select>
+                           </div>
+                           {/* // semester */}
+                           <div>
+                              <label className='block text-sm font-medium text-slate-700 mb-1'>Semester</label>
+                              <select required name="semester"  className='block w-full rounded-xl border border-slate-200 bg-gray-50 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500' >
+                                 <option value={getSemester(year)[0]} >Select Semester</option>
+                                 {getSemester(year).map((semester)=>(
+                                    <option key={semester} value={semester}>{semester} {semester%2===1 ? "Odd" : "Even"} Semester</option>
+                                 ))}
+                              </select>
+                           </div>
+                           </>
                         )
                      }
                   </>

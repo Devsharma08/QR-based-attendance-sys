@@ -6,6 +6,7 @@ import HodDashboard from "./components/hod/HodDashboard";
 import TeacherDashboard from "./components/teacher/TeacherDashboard";
 import StudentScanner from "./components/student/StudentDashboard";
 import Auth from './components/Auth';
+import Profile from './components/profile';
 import { useState,useEffect } from "react";
 // import { useNavigate } from "react-router-dom";
 
@@ -48,10 +49,8 @@ const App = () => {
         {userRole === "TEACHER" && <Link to="/teacher" className="flex items-center gap-2 hover:text-blue-400"> <ClipboardList size={18} /> Teacher </Link>}
         {userRole==="STUDENT" && <Link to="/student" className="flex items-center gap-2 hover:text-blue-400"> <QrCode size={18} /> Student Scanner</Link>}
         </div>
-        <div>
-          <span className="text-gray-300 mr-4">
-            {session?.user?.name} ({userRole})
-          </span>
+        <div className="flex items-center gap-2">
+          <Link to ='/profile' className="flex items-center gap-2 hover:text-blue-400"> Profile </Link>
           <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600">
             Logout
           </button>
@@ -65,6 +64,7 @@ const App = () => {
           <Route path="/hod" element={<HodDashboard />} />
           <Route path="/teacher" element={<TeacherDashboard />} />
           <Route path="/student" element={<StudentScanner />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </main>
     </BrowserRouter>

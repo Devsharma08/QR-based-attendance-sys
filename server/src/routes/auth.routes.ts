@@ -8,11 +8,19 @@ const JWT_SECRET = process.env.JWT_SECRET as string;
 const prisma = new PrismaClient();
 const router = Router();
 
+const getDeptNameById = async(id:string | null):Promise<string | null>=>{
+  if(!id) return null;
+  const dept = await prisma.department.findUnique({
+    where:{id}
+  });
+  return dept?.name || null;
+}
+
 
 // 1. Sign Up
 router.post('/signup', async (req:Request, res:Response):Promise<any> => {
   try {
-    const { email, password, name, role,department,batch } = req.body;
+    const { email, password, name, role, department, batch, semester, year, contactNumber } = req.body;
     
     // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email }});
@@ -42,7 +50,10 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
         name, 
         role: role.toUpperCase(),
         departmentId: deptId,
+        contactNumber,
         batch: role.toUpperCase()==='STUDENT' ? batch : null, // only for students
+        semester: role.toUpperCase()==='STUDENT' ? parseInt(semester) : null,
+        year: role.toUpperCase()==='STUDENT' ? parseInt(year) : null
       }
     });
 
@@ -50,6 +61,9 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
       id: user.id,
       name: user.name,
       role: user.role,
+      year: user.year,
+      semester: user.semester,
+      contactNumber: user.contactNumber
     };
 
     if(role.toUpperCase()==='STUDENT'){
@@ -61,16 +75,20 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
 
     // Generate a secure JWT
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-    // res.json({ token, user });
 
     res.json({
       token: token,
       user: {
         id: user.id,
         name: user.name,
+        email: user.email,
         departmentId: user.departmentId || null,
+        departmentName: department || null,
         batch: user.batch || null,
         role: user.role,
+        semester: user.semester || null,
+        year: user.year || null,
+        contactNumber: user.contactNumber || null
       }
     });
     
@@ -85,7 +103,10 @@ router.post('/login', async (req:Request, res:Response) => {
     const { email, password} = req.body;
     
     // Find the user
-    const user = await prisma.user.findUnique({ where: { email }});
+    const user = await prisma.user.findUnique({ 
+      where: { email },
+      include: { department: { select: { name: true } } }
+    });
     
     // Check if user exists and password matches
     const isPasswordValid = user && await bcrypt.compare(password, user.password);
@@ -93,19 +114,38 @@ router.post('/login', async (req:Request, res:Response) => {
     if (!user || !isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
+
     // Generate a secure JWT
     const payload: any = {
       id: user.id,
       name: user.name,
       role: user.role,
       batch: user.batch || null,
-      departmentId: user.departmentId || null
+      departmentId: user.departmentId || null,
+      departmentName: user.department?.name || null,
+      semester: user.semester || null,
+      year: user.year || null,
+      contactNumber: user.contactNumber || null
     };
     
     // Generate a secure JWT
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ token, user });
+    res.json({ 
+      token, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        departmentId: user.departmentId || null,
+        departmentName: user.department?.name || null,
+        batch: user.batch || null,
+        semester: user.semester || null,
+        year: user.year || null,
+        contactNumber: user.contactNumber || null
+      } 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error during login" });

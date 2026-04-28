@@ -144,8 +144,7 @@ router.get('/summary', async (req: Request, res: Response) => {
         timetable: {
           subjectId: { in: subjectIds },
           batch: student.batch
-        },
-        status: "CLOSED"
+        }
       },
       include: {
         timetable: true,
