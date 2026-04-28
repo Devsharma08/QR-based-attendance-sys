@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { PlayCircle, Download, ShieldCheck, Square, Users, History, Zap } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const TeacherDashboard = () => {
   const [timetables, setTimetables] = useState<any[]>([]);
   const [timetableId, setTimetableId] = useState('');
@@ -17,7 +19,7 @@ const TeacherDashboard = () => {
   useEffect(() => {
     const fetchTimetables = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/teacher/timetables?teacherId=${user.id}`, { 
+        const res = await fetch(`${API_URL}/api/teacher/timetables?teacherId=${user.id}`, { 
           headers: { 'Authorization': `Bearer ${token}` } 
         });
         if (res.ok) { 
@@ -34,7 +36,7 @@ const TeacherDashboard = () => {
     if (activeTab === 'HISTORY') {
       const fetchHistory = async () => {
         try {
-          const res = await fetch(`http://localhost:5000/api/teacher/history`, { 
+          const res = await fetch(`${API_URL}/api/teacher/history`, { 
             headers: { 'Authorization': `Bearer ${token}` } 
           });
           if (res.ok) setHistory(await res.json());
@@ -54,7 +56,7 @@ const TeacherDashboard = () => {
 
   const fetchLiveAttendance = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/live`, { 
+      const res = await fetch(`${API_URL}/api/teacher/session/${activeSessionId}/live`, { 
         headers: { 'Authorization': `Bearer ${token}` } 
       });
       if (res.ok) setLiveAttendance(await res.json());
@@ -81,7 +83,7 @@ const TeacherDashboard = () => {
     if (!activeSessionId) return;
     if (!window.confirm("Stop this class?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/stop`, { 
+      const res = await fetch(`${API_URL}/api/teacher/session/${activeSessionId}/stop`, { 
         method: "POST", 
         headers: { 'Authorization': `Bearer ${token}` } 
       });
@@ -220,7 +222,7 @@ const TeacherDashboard = () => {
                       <p style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{new Date(session.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                       <span className="badge badge-purple" style={{ marginTop: '0.375rem' }}>{session._count?.attendances} Attended</span>
                     </div>
-                    <button onClick={() => window.open(`http://localhost:5000/api/teacher/export/session/${session.id}?token=${token}`, '_blank')} style={{ padding: '0.625rem', borderRadius: '0.625rem', background: 'rgba(16, 185, 129, 0.08)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.12)', cursor: 'pointer', transition: 'all 0.2s' }} title="Download Excel">
+                    <button onClick={() => window.open(`${API_URL}/api/teacher/export/session/${session.id}?token=${token}`, '_blank')} style={{ padding: '0.625rem', borderRadius: '0.625rem', background: 'rgba(16, 185, 129, 0.08)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.12)', cursor: 'pointer', transition: 'all 0.2s' }} title="Download Excel">
                       <Download size={16} />
                     </button>
                   </div>

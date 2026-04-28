@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, QrCode, Eye, EyeOff } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
 
     try {
       if (isLogin) {
-        const res = await fetch('http://localhost:5000/api/auth/login', {
+        const res = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: entries.email, password: entries.password })
         });
@@ -43,7 +45,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
         localStorage.setItem('qr_user', JSON.stringify(data.user));
         onAuthSuccess({ token: data.token, user: data.user });
       } else {
-        const res = await fetch('http://localhost:5000/api/auth/signup', {
+        const res = await fetch(`${API_URL}/api/auth/signup`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entries)
         });

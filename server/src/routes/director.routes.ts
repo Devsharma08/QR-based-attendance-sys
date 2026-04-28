@@ -48,7 +48,7 @@ router.post('/departments', async (req: Request, res: Response) => {
 
 // PATCH update a department name
 router.patch('/departments/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const { name } = req.body;
   if (!name) return res.status(400).json({ message: 'Department name is required' });
   try {
@@ -62,7 +62,7 @@ router.patch('/departments/:id', async (req: Request, res: Response) => {
 
 // DELETE a department
 router.delete('/departments/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     await prisma.department.delete({ where: { id } });
     res.json({ message: 'Department deleted successfully' });
@@ -201,7 +201,8 @@ router.get('/analytics', async (req: Request, res: Response) => {
 
 // GET all users across the system (for a master user list)
 router.get('/users', async (req: Request, res: Response) => {
-  const { role, departmentId } = req.query;
+  const role = req.query.role as string;
+  const departmentId = req.query.departmentId as string;
   try {
     const users = await prisma.user.findMany({
       where: {

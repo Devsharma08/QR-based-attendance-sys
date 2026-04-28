@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { QrCode, CheckCircle, XCircle, History, Scan } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState<'SCAN' | 'HISTORY'>('SCAN');
   const [history, setHistory] = useState<any[]>([]);
@@ -27,7 +29,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'HISTORY' && user.id) {
-      fetch(`http://localhost:5000/api/student/history?studentId=${user.id}`, { 
+      fetch(`${API_URL}/api/student/history?studentId=${user.id}`, { 
         headers: { 'Authorization': `Bearer ${token}` } 
       })
         .then(r => r.ok ? r.json() : [])
@@ -38,7 +40,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'HISTORY' && historyView === 'COMBINED' && user.id) {
-      fetch(`http://localhost:5000/api/student/summary?studentId=${user.id}`, { 
+      fetch(`${API_URL}/api/student/summary?studentId=${user.id}`, { 
         headers: { 'Authorization': `Bearer ${token}` } 
       })
         .then(r => r.ok ? r.json() : { subjects: [], sessions: [] })
@@ -73,7 +75,7 @@ const StudentDashboard = () => {
         setStatus('IDLE');
 
         try {
-          const response = await fetch('http://localhost:5000/api/student/scan', {
+          const response = await fetch(`${API_URL}/api/student/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ studentId: user.id, qrPayload: decodedText })

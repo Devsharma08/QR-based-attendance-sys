@@ -21,6 +21,8 @@ const selectLightStyles = {
   dropdownIndicator: (base: any) => ({ ...base, color: '#6b7280', '&:hover': { color: '#1e1e2e' } }),
 };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const HodDashboard = () => {
   const [activeTab, setActiveTab] = useState<'ROOM' | 'SUBJECT' | 'TIMETABLE' | 'MASTER_TIMETABLE'>('MASTER_TIMETABLE');
   const [statusMsg, setStatusMsg] = useState('');
@@ -41,7 +43,7 @@ const HodDashboard = () => {
   const handleDelete = async (t: any) => {
     if (!window.confirm("Delete this schedule?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/timetable${query}`, {
+      const res = await fetch(`${API_URL}/api/hod/timetable${query}`, {
         method: 'DELETE', headers,
         body: JSON.stringify({ subjectId: t.subjectId, teacherId: t.teacherId, roomId: t.roomId, dayOfWeek: t.dayOfWeek, startTime: t.startTime, endTime: t.endTime, batch: t.batch || null })
       });
@@ -60,7 +62,7 @@ const HodDashboard = () => {
   const handleDeleteRoom = async (roomId: string, deptId: string) => {
     if (!window.confirm("Delete this room?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/rooms/${roomId}?departmentId=${deptId}`, { method: 'DELETE', headers });
+      const res = await fetch(`${API_URL}/api/hod/rooms/${roomId}?departmentId=${deptId}`, { method: 'DELETE', headers });
       if (res.ok) { setStatusMsg("Room deleted"); setRooms(rooms.filter(r => r.id !== roomId)); }
       else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
     } catch { setStatusMsg("Error: Failed to delete room"); }
@@ -69,7 +71,7 @@ const HodDashboard = () => {
   const handleDeleteSubject = async (subjectId: string, deptId: string) => {
     if (!window.confirm("Delete this subject?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/subjects/${subjectId}?departmentId=${deptId}`, { method: 'DELETE', headers });
+      const res = await fetch(`${API_URL}/api/hod/subjects/${subjectId}?departmentId=${deptId}`, { method: 'DELETE', headers });
       if (res.ok) { setStatusMsg("Subject deleted"); setSubjects(subjects.filter(s => s.id !== subjectId)); }
       else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
     } catch { setStatusMsg("Error: Failed to delete subject"); }
@@ -85,10 +87,10 @@ const HodDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       const [teachersRes, roomsRes, subjectsRes, timeTableRes] = await Promise.all([
-        fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers }),
-        fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers }),
-        fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers }),
-        fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers })
+        fetch(`${API_URL}/api/hod/teachers${query}`, { headers }),
+        fetch(`${API_URL}/api/hod/rooms${query}`, { headers }),
+        fetch(`${API_URL}/api/hod/subjects${query}`, { headers }),
+        fetch(`${API_URL}/api/hod/timetable${query}`, { headers })
       ]);
       if (teachersRes.ok) setTeachers(await teachersRes.json());
       if (roomsRes.ok) setRooms(await roomsRes.json());
@@ -101,17 +103,17 @@ const HodDashboard = () => {
   const handleSubmit = async (e: React.FormEvent, endpoint: string) => {
     e.preventDefault(); setStatusMsg("Saving...");
     const formData = new FormData(e.target as HTMLFormElement);
-    const payload = Object.fromEntries(formData.entries());
+    const payload: any = Object.fromEntries(formData.entries());
     let method = 'POST';
-    if (isEditSubject) { method = 'PATCH'; payload.id = editSubjectId; }
+    if (isEditSubject && editSubjectId) { method = 'PATCH'; payload.id = editSubjectId; }
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/${endpoint}?departmentId=${departmentId}`, { method, headers, body: JSON.stringify(payload) });
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/hod/${endpoint}?departmentId=${departmentId}`, { method, headers, body: JSON.stringify(payload) });
       if (res.ok) {
         setStatusMsg(`✓ Saved ${endpoint}`);
         (e.target as HTMLFormElement).reset();
-        if (endpoint === "rooms") { const r = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers }); if (r.ok) setRooms(await r.json()); }
-        else if (endpoint === "subjects") { const r = await fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers }); if (r.ok) setSubjects(await r.json()); setIsEditSubject(false); setEditSubjectId(null); }
-        else if (endpoint === "timetable") { const r = await fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers }); if (r.ok) setTimeTable(await r.json()); }
+        if (endpoint === "rooms") { const r = await fetch(`${API_URL}/api/hod/rooms${query}`, { headers }); if (r.ok) setRooms(await r.json()); }
+        else if (endpoint === "subjects") { const r = await fetch(`${API_URL}/api/hod/subjects${query}`, { headers }); if (r.ok) setSubjects(await r.json()); setIsEditSubject(false); setEditSubjectId(null); }
+        else if (endpoint === "timetable") { const r = await fetch(`${API_URL}/api/hod/timetable${query}`, { headers }); if (r.ok) setTimeTable(await r.json()); }
       } else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
     } catch { setStatusMsg("Backend server is offline."); }
   };

@@ -9,7 +9,8 @@ import {
   BarChart2, List
 } from 'lucide-react';
 
-const API = 'http://localhost:5000/api/director';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = `${API_BASE}/api/director`;
 
 const DirectorDashboard = () => {
   const token = localStorage.getItem('qr_token') || '';
