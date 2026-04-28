@@ -20,7 +20,7 @@ const getDeptNameById = async(id:string | null):Promise<string | null>=>{
 // 1. Sign Up
 router.post('/signup', async (req:Request, res:Response):Promise<any> => {
   try {
-    const { email, password, name, role, department, batch, semester, year, contactNumber } = req.body;
+    const { email, password, name, role, department, batch, semester, year, contactNumber, roleNumber, studentType } = req.body;
     
     // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email }});
@@ -49,8 +49,10 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
         password:hashedPassword, 
         name, 
         role: role.toUpperCase(),
-        departmentId: deptId,
+        department: deptId ? { connect: { id: deptId } } : undefined,
         contactNumber,
+        roleNumber: role.toUpperCase()==='STUDENT' ? roleNumber : null,
+        studentType: role.toUpperCase()==='STUDENT' ? studentType : null,
         batch: role.toUpperCase()==='STUDENT' ? batch : null, // only for students
         semester: role.toUpperCase()==='STUDENT' ? parseInt(semester) : null,
         year: role.toUpperCase()==='STUDENT' ? parseInt(year) : null
@@ -63,7 +65,9 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
       role: user.role,
       year: user.year,
       semester: user.semester,
-      contactNumber: user.contactNumber
+      contactNumber: user.contactNumber,
+      roleNumber: user.roleNumber,
+      studentType: user.studentType
     };
 
     if(role.toUpperCase()==='STUDENT'){
@@ -88,7 +92,9 @@ router.post('/signup', async (req:Request, res:Response):Promise<any> => {
         role: user.role,
         semester: user.semester || null,
         year: user.year || null,
-        contactNumber: user.contactNumber || null
+        contactNumber: user.contactNumber || null,
+        roleNumber: user.roleNumber || null,
+        studentType: user.studentType || null
       }
     });
     
@@ -125,7 +131,9 @@ router.post('/login', async (req:Request, res:Response) => {
       departmentName: user.department?.name || null,
       semester: user.semester || null,
       year: user.year || null,
-      contactNumber: user.contactNumber || null
+      contactNumber: user.contactNumber || null,
+      roleNumber: user.roleNumber || null,
+      studentType: user.studentType || null
     };
     
     // Generate a secure JWT
@@ -143,7 +151,9 @@ router.post('/login', async (req:Request, res:Response) => {
         batch: user.batch || null,
         semester: user.semester || null,
         year: user.year || null,
-        contactNumber: user.contactNumber || null
+        contactNumber: user.contactNumber || null,
+        roleNumber: user.roleNumber || null,
+        studentType: user.studentType || null
       } 
     });
   } catch (error) {

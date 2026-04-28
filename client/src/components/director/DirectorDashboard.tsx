@@ -262,7 +262,7 @@ const DirectorDashboard = () => {
             </div>
             <div className="glass-card" style={{ overflow: 'hidden' }}>
               <table className="table-premium">
-                <thead><tr>{['Name', 'Email', 'Role', 'Department', 'Batch / Sem'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{['Name', 'Email', 'Role', 'Department', 'Roll No.', 'Type', 'Batch / Sem'].map(h => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No users found.</td></tr>
@@ -272,6 +272,8 @@ const DirectorDashboard = () => {
                       <td>{user.email}</td>
                       <td><span className={`badge ${user.role === 'STUDENT' ? 'badge-cyan' : user.role === 'TEACHER' ? 'badge-purple' : user.role === 'HOD' ? 'badge-amber' : 'badge-red'}`}>{user.role}</span></td>
                       <td>{user.department?.name || '—'}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', fontWeight: 600 }}>{user.roleNumber || '—'}</td>
+                      <td>{user.role === 'STUDENT' ? (user.studentType === 'LATERAL_ENTRY' ? 'Lateral' : 'Regular') : '—'}</td>
                       <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem' }}>{user.batch || '—'}{user.semester ? ` · Sem ${user.semester}` : ''}{user.year ? ` · Yr ${user.year}` : ''}</td>
                     </tr>
                   ))}

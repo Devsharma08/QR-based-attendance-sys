@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from "react-router-dom";
-import { BarChart, Calendar, QrCode, ClipboardList, User, LogOut, Sparkles } from "lucide-react";
+import { BarChart, Calendar, QrCode, ClipboardList, User, LogOut } from "lucide-react";
 
 import DirectorDashboard from "./components/director/DirectorDashboard";
 import HodDashboard from "./components/hod/HodDashboard";
@@ -40,7 +40,7 @@ const NavBar = ({ userRole, onLogout }: { userRole: string; onLogout: () => void
             background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Sparkles size={14} color="white" />
+            <QrCode size={14} color="white" />
           </div>
           <span style={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.02em', color: '#1e1e2e' }}>
             QR <span style={{ color: '#6b7280' }}>Attend</span>
@@ -87,21 +87,18 @@ const NavBar = ({ userRole, onLogout }: { userRole: string; onLogout: () => void
   );
 };
 
-const AppContent = ({ session, onLogout }: { session: any; onLogout: () => void }) => {
+const ProtectedLayout = ({ session, onLogout, children }: { session: any; onLogout: () => void; children: React.ReactNode }) => {
   const userRole = session.user.role;
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If we are at the root or auth page, or on a dashboard that doesn't belong to our role
-    // redirect to the correct role dashboard.
     const path = location.pathname.toLowerCase();
     const rolePath = `/${userRole.toLowerCase()}`;
-    
     const isDashboardPath = ['/director', '/hod', '/teacher', '/student'].some(p => path.startsWith(p));
     const isIncorrectDashboard = isDashboardPath && !path.startsWith(rolePath);
     
-    if (path === '/' || path === '/auth' || isIncorrectDashboard) {
+    if (path === '/' || isIncorrectDashboard) {
       navigate(rolePath, { replace: true });
     }
   }, [userRole, location.pathname, navigate]);
@@ -110,15 +107,7 @@ const AppContent = ({ session, onLogout }: { session: any; onLogout: () => void 
     <>
       <NavBar userRole={userRole} onLogout={onLogout} />
       <main style={{ minHeight: 'calc(100vh - 4rem)' }}>
-        <Routes>
-          <Route path="/director" element={userRole === 'DIRECTOR' ? <DirectorDashboard /> : <Navigate to={`/${userRole.toLowerCase()}`} replace />} />
-          <Route path="/hod" element={userRole === 'HOD' ? <HodDashboard /> : <Navigate to={`/${userRole.toLowerCase()}`} replace />} />
-          <Route path="/teacher" element={userRole === 'TEACHER' ? <TeacherDashboard /> : <Navigate to={`/${userRole.toLowerCase()}`} replace />} />
-          <Route path="/student" element={userRole === 'STUDENT' ? <StudentScanner /> : <Navigate to={`/${userRole.toLowerCase()}`} replace />} />
-          <Route path="/profile" element={<Profile />} />
-          {/* Fallback to profile if something goes wrong, or the correct dashboard will be picked up by useEffect */}
-          <Route path="*" element={<Navigate to={`/${userRole.toLowerCase()}`} replace />} />
-        </Routes>
+        {children}
       </main>
     </>
   );
@@ -126,6 +115,7 @@ const AppContent = ({ session, onLogout }: { session: any; onLogout: () => void 
 
 const App = () => {
   const [session, setSession] = useState<any>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('qr_token');
@@ -133,6 +123,7 @@ const App = () => {
     if (savedToken && savedUser) {
       setSession({ token: savedToken, user: JSON.parse(savedUser) });
     }
+    setInitialized(true);
   }, []);
 
   const handleLogout = () => {
@@ -141,13 +132,46 @@ const App = () => {
     setSession(null);
   };
 
-  if (!session) {
-    return <Auth onAuthSuccess={(data) => { setSession(data) }} />;
-  }
+  if (!initialized) return null;
 
   return (
     <BrowserRouter>
-      <AppContent session={session} onLogout={handleLogout} />
+      <Routes>
+        {/* Auth Routes */}
+        <Route 
+          path="/login" 
+          element={!session ? <Auth onAuthSuccess={(data) => setSession(data)} /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/signup" 
+          element={!session ? <Auth onAuthSuccess={(data) => setSession(data)} /> : <Navigate to="/" replace />} 
+        />
+        <Route 
+          path="/auth" 
+          element={<Navigate to="/login" replace />} 
+        />
+
+        {/* Protected Routes */}
+        <Route 
+          path="/*" 
+          element={
+            session ? (
+              <ProtectedLayout session={session} onLogout={handleLogout}>
+                <Routes>
+                  <Route path="/director" element={session.user.role === 'DIRECTOR' ? <DirectorDashboard /> : <Navigate to="/" replace />} />
+                  <Route path="/hod" element={session.user.role === 'HOD' ? <HodDashboard /> : <Navigate to="/" replace />} />
+                  <Route path="/teacher" element={session.user.role === 'TEACHER' ? <TeacherDashboard /> : <Navigate to="/" replace />} />
+                  <Route path="/student" element={session.user.role === 'STUDENT' ? <StudentScanner /> : <Navigate to="/" replace />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </ProtectedLayout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } 
+        />
+      </Routes>
     </BrowserRouter>
   );
 };

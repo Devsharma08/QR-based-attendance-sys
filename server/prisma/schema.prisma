@@ -65,7 +65,8 @@ model User {
   semester Int?    // for students only 
   year     Int?    // for students only 
   contactNumber String? // for all users
-
+  roleNumber String? // for all students
+  studentType String? // REGULAR or LATERAL_ENTRY
   // Hardware Locking for Students
   deviceId      String? @unique
   deviceBoundAt DateTime?

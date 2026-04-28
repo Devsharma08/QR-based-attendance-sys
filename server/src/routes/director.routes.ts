@@ -217,6 +217,8 @@ router.get('/users', async (req: Request, res: Response) => {
         semester: true,
         year: true,
         contactNumber: true,
+        roleNumber: true,
+        studentType: true,
         departmentId: true,
         department: { select: { name: true } }
       },

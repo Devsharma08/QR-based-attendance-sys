@@ -185,8 +185,10 @@ const TeacherDashboard = () => {
                 {liveAttendance.map(record => (
                   <div key={record.id} style={{ padding: '0.875rem', borderRadius: '0.75rem', background: 'var(--bg-primary)', border: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'slideRight 0.3s ease' }}>
                     <div>
-                      <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{record.student.name}</p>
-                      <p style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{record.student.email}</p>
+                      <p style={{ fontWeight: 600, fontSize: '0.875rem', color: '#1e1e2e' }}>{record.student.name}</p>
+                      <p style={{ fontSize: '0.6875rem', color: '#6b7280' }}>
+                        {record.student.roleNumber || 'No Roll No.'} · {record.student.studentType === 'LATERAL_ENTRY' ? 'Lateral' : 'Regular'} · {record.student.email}
+                      </p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <span className="badge badge-purple">{record.student.batch || 'All'}</span>

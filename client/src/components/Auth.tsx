@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Loader2, QrCode, Eye, EyeOff } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
-  const [isLogin, setIsLogin] = useState(() => {
-    const saved = localStorage.getItem('qr_auth_mode');
-    return saved ? saved === 'login' : true;
-  });
-
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  const [isLogin, setIsLogin] = useState(location.pathname === '/login' || location.pathname === '/auth');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [year, setYear] = useState(1);
@@ -14,8 +14,8 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('qr_auth_mode', isLogin ? 'login' : 'signup');
-  }, [isLogin]);
+    setIsLogin(location.pathname === '/login' || location.pathname === '/auth');
+  }, [location.pathname]);
 
   const getSemester = (year: number) => {
     switch (year) {
@@ -94,7 +94,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
             margin: '0 auto 1.25rem',
             boxShadow: '0 8px 32px rgba(99,102,241,0.25)',
           }}>
-            <Sparkles size={22} color="white" />
+            <QrCode size={22} color="white" />
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#1e1e2e', marginBottom: '0.375rem' }}>
             {isLogin ? 'Welcome Back' : 'Create Account'}
@@ -108,6 +108,18 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
           {!isLogin && (
             <>
               <div><label className="label-premium">Full Name</label><input required name="name" type="text" className="input-premium" placeholder="John Doe" /></div>
+              {role === "STUDENT" && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div><label className="label-premium">Roll Number</label><input required name="roleNumber" type="text" className="input-premium" placeholder="e.g. 21001001" /></div>
+                  <div>
+                    <label className="label-premium">Student Type</label>
+                    <select required name="studentType" className="input-premium">
+                      <option value="REGULAR">Regular</option>
+                      <option value="LATERAL_ENTRY">Lateral Entry</option>
+                    </select>
+                  </div>
+                </div>
+              )}
               <div><label className="label-premium">Contact Number</label><input required name="contactNumber" type="tel" className="input-premium" placeholder="+91 98765 43210" /></div>
               <div>
                 <label className="label-premium">Role</label>
@@ -177,7 +189,7 @@ const Auth = ({ onAuthSuccess }: { onAuthSuccess: (session: any) => void }) => {
 
         <p style={{ textAlign: 'center', fontSize: '0.8125rem', color: '#6b7280', marginTop: '1.5rem' }}>
           {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button type="button" onClick={() => { setIsLogin(!isLogin); setMessage(''); }} style={{
+          <button type="button" onClick={() => { navigate(isLogin ? '/signup' : '/login'); setMessage(''); }} style={{
             border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8125rem',
             background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',

@@ -57,7 +57,7 @@ router.get('/session/:sessionId/live', async (req: Request, res: Response) => {
         id: sessionId as string
       },
       include: {
-        student: { select: { name: true, email: true, batch: true } }
+        student: { select: { name: true, email: true, batch: true, roleNumber: true, studentType: true } }
       },
       orderBy: { markedAt: 'desc' }
     });
@@ -184,6 +184,8 @@ router.get('/export/session/:sessionId', async (req: Request, res: Response) => 
     worksheet.columns = [
       { header: "Student Name", key: "name", width: 25 },
       { header: "Email", key: "email", width: 25 },
+      { header: "Roll Number", key: "roleNumber", width: 20 },
+      { header: "Type", key: "studentType", width: 15 },
       { header: 'Batch', key: 'batch', width: 15 },
       { header: 'Time Marked', key: 'time', width: 20 },
     ];
@@ -207,6 +209,8 @@ router.get('/export/session/:sessionId', async (req: Request, res: Response) => 
       worksheet.addRow({
         name: attendance.student?.name,
         email: attendance.student?.email,
+        roleNumber: attendance.student?.roleNumber || 'N/A',
+        studentType: attendance.student?.studentType || 'REGULAR',
         batch: attendance.student?.batch || 'N/A',
         time: new Date(attendance.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
