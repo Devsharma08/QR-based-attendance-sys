@@ -1,141 +1,79 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { User, Mail, Phone, Building, GraduationCap, Calendar, Hash, ShieldCheck, MapPin } from 'lucide-react';
 
 const Profile = () => {
   const payload = localStorage.getItem('qr_user');
-  
   const user = useMemo(() => {
-    try {
-      return payload ? JSON.parse(payload) : null;
-    } catch (e) {
-      console.error("Failed to parse user payload", e);
-      return null;
-    }
+    try { return payload ? JSON.parse(payload) : null; }
+    catch (e) { console.error("Failed to parse user payload", e); return null; }
   }, [payload]);
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
-            <User size={32} />
-          </div>
-          <p className="text-slate-500 font-medium">No user data found. Please log in again.</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#94a3b8' }}><User size={32} /></div>
+          <p style={{ color: '#6b7280', fontWeight: 500 }}>No user data found. Please log in again.</p>
         </div>
       </div>
     );
   }
 
-  const DetailItem = ({ icon: Icon, label, value, colorClass }: { icon: any, label: string, value: string | number | null, colorClass?: string }) => {
+  const DetailItem = ({ icon: Icon, label, value, accentColor }: { icon: any; label: string; value: string | number | null; accentColor: string }) => {
     if (value === null || value === undefined) return null;
     return (
-      <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-        <div className={`p-3 rounded-xl ${colorClass || 'bg-blue-50 text-blue-600'}`}>
-          <Icon size={20} />
-        </div>
+      <div className="glass-card animate-slide-up" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: `${accentColor}0d`, color: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon size={18} /></div>
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-          <p className="text-sm font-bold text-slate-700">{value}</p>
+          <p style={{ fontSize: '0.625rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+          <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e1e2e', marginTop: '0.125rem' }}>{value}</p>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 max-w-4xl mx-auto py-8 px-4">
-      {/* Profile Header Card */}
-      <div className="relative overflow-hidden bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 mb-8">
-        {/* Background Decorative Circles */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full opacity-50 blur-3xl -z-10" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-50 rounded-full opacity-50 blur-3xl -z-10" />
-
-        <div className="flex flex-col md:flex-row items-center gap-8">
-          {/* Avatar Section */}
-          <div className="relative">
-            <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
-              <span className="text-4xl font-black uppercase">{user.name?.charAt(0)}</span>
+    <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '2rem 1rem' }}>
+      <div className="glass-card animate-slide-up" style={{ padding: '2.5rem', marginBottom: '1.5rem', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-6rem', right: '-6rem', width: '16rem', height: '16rem', borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.05), transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-6rem', left: '-6rem', width: '16rem', height: '16rem', borderRadius: '50%', background: 'radial-gradient(circle, rgba(6,182,212,0.04), transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2rem', position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ width: '6rem', height: '6rem', borderRadius: '1.25rem', background: 'linear-gradient(135deg, #6366f1, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.2)' }}>
+              <span style={{ fontSize: '2.25rem', fontWeight: 900, color: 'white', textTransform: 'uppercase' }}>{user.name?.charAt(0)}</span>
             </div>
-            <div className="absolute -bottom-2 -right-2 bg-green-500 border-4 border-white w-8 h-8 rounded-full shadow-sm" />
+            <div style={{ position: 'absolute', bottom: '-0.25rem', right: '-0.25rem', width: '1.5rem', height: '1.5rem', borderRadius: '50%', background: '#10b981', border: '3px solid white' }} />
           </div>
-
-          {/* User Basic Info */}
-          <div className="flex-1 text-center md:text-left">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight">{user.name}</h1>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                {user.role}
-              </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#1e1e2e' }}>{user.name}</h1>
+              <span className="badge badge-purple">{user.role}</span>
             </div>
-            <p className="text-slate-500 font-medium flex items-center justify-center md:justify-start gap-2">
-              <Mail size={14} />
-              {user.email}
-            </p>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={14} /> {user.email}</p>
           </div>
-
-          {/* Role Badge / Status */}
-          <div className="hidden lg:block bg-slate-50 rounded-2xl p-4 border border-slate-100">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="text-green-600" size={24} />
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Account Status</p>
-                <p className="text-xs font-bold text-slate-700">Verified Member</p>
-              </div>
+          <div className="glass-card" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <ShieldCheck size={20} style={{ color: '#059669' }} />
+            <div>
+              <p style={{ fontSize: '0.625rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Status</p>
+              <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#059669' }}>Verified</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Details Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DetailItem 
-          icon={Building} 
-          label="Department" 
-          value={user.departmentName || user.department || "University Campus"} 
-          colorClass="bg-purple-50 text-purple-600"
-        />
-        <DetailItem 
-          icon={Phone} 
-          label="Contact Number" 
-          value={user.contactNumber || "Not provided"} 
-          colorClass="bg-green-50 text-green-600"
-        />
-        
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: '0.75rem' }}>
+        <DetailItem icon={Building} label="Department" value={user.departmentName || user.department || "University Campus"} accentColor="#6366f1" />
+        <DetailItem icon={Phone} label="Contact Number" value={user.contactNumber || "Not provided"} accentColor="#059669" />
         {user.role === "STUDENT" && (
           <>
-            <DetailItem 
-              icon={Hash} 
-              label="Batch / Group" 
-              value={user.batch} 
-              colorClass="bg-orange-50 text-orange-600"
-            />
-            <DetailItem 
-              icon={Calendar} 
-              label="Academic Year" 
-              value={user.year ? `${user.year}${user.year === 1 ? 'st' : user.year === 2 ? 'nd' : user.year === 3 ? 'rd' : 'th'} Year` : null} 
-              colorClass="bg-indigo-50 text-indigo-600"
-            />
-            <DetailItem 
-              icon={GraduationCap} 
-              label="Current Semester" 
-              value={user.semester ? `Semester ${user.semester}` : null} 
-              colorClass="bg-pink-50 text-pink-600"
-            />
+            <DetailItem icon={Hash} label="Batch / Group" value={user.batch} accentColor="#f97316" />
+            <DetailItem icon={Calendar} label="Academic Year" value={user.year ? `${user.year}${user.year === 1 ? 'st' : user.year === 2 ? 'nd' : user.year === 3 ? 'rd' : 'th'} Year` : null} accentColor="#6366f1" />
+            <DetailItem icon={GraduationCap} label="Current Semester" value={user.semester ? `Semester ${user.semester}` : null} accentColor="#ec4899" />
           </>
         )}
-
-        <DetailItem 
-          icon={MapPin} 
-          label="Location" 
-          value="Academic Block" 
-          colorClass="bg-amber-50 text-amber-600"
-        />
+        <DetailItem icon={MapPin} label="Location" value="Academic Block" accentColor="#d97706" />
       </div>
-
-      {/* Footer / Logout Button Area */}
-      <div className="mt-8 text-center">
-        <p className="text-xs text-slate-400 font-medium">
-          Digital ID: <span className="font-mono">{user.id?.substring(0, 8)}...</span>
-        </p>
+      <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <p style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 500 }}>Digital ID: <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{user.id?.substring(0, 8)}...</span></p>
       </div>
     </div>
   );

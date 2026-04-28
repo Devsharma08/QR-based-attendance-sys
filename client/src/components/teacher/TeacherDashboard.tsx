@@ -1,244 +1,196 @@
-import React, { useState, useEffect } from 'react';
-import { PlayCircle, Download, ShieldCheck, Square, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PlayCircle, Download, ShieldCheck, Square, Users, History, Zap } from 'lucide-react';
 
 const TeacherDashboard = () => {
   const [timetables, setTimetables] = useState<any[]>([]);
   const [timetableId, setTimetableId] = useState('');
-  const [activeTab,setActiveTab]= useState<"CLASS" | "HISTORY">("CLASS");
+  const [activeTab, setActiveTab] = useState<"CLASS" | "HISTORY">("CLASS");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [liveAttendance, setLiveAttendance] = useState<any[]>([]);
   const [message, setMessage] = useState('');
-  const [history,setHistory]= useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [filter, setFilter] = useState('');
 
-  // filter states
-  const [filter,setFilter] = useState<string>('');
-
-  // user info & token
   const user = JSON.parse(localStorage.getItem("qr_user") || "{}");
   const token = localStorage.getItem("qr_token") || "";
 
-  // Fetch Teacher's Timetables 
   useEffect(() => {
     const fetchTimetables = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/teacher/timetables?teacherId=${user.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const res = await fetch(`http://localhost:5000/api/teacher/timetables?teacherId=${user.id}`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
         });
-        if (res.ok) {
-          const data = await res.json();
-          setTimetables(data);
+        if (res.ok) { 
+          const data = await res.json(); 
+          setTimetables(data); 
           if (data.length > 0) setTimetableId(data[0].id); 
         }
-      } catch (err) {
-        console.error("Failed to load timetables", err);
-      }
+      } catch (err) { console.error("Failed to load timetables", err); }
     };
     if (user.id) fetchTimetables();
-  }, []);
+  }, [user.id, token]);
 
-  // fetch history
-  useEffect(()=>{
-  if(activeTab==='HISTORY'){
-      const fetchHistory = async()=> {
+  useEffect(() => {
+    if (activeTab === 'HISTORY') {
+      const fetchHistory = async () => {
         try {
-          const res = await fetch(`http://localhost:5000/api/teacher/history`, {
-            headers: {'Authorization': `Bearer ${token}`}
+          const res = await fetch(`http://localhost:5000/api/teacher/history`, { 
+            headers: { 'Authorization': `Bearer ${token}` } 
           });
-          if (res.ok) {
-            setHistory(await res.json());
-          }
-        } catch (error) {
-          console.error("Failed to fetch history", error);
-        }
-      }
+          if (res.ok) setHistory(await res.json());
+        } catch (error) { console.error("Failed to fetch history", error); }
+      };
       fetchHistory();
     }
-  },[activeTab])
+  }, [activeTab, token]);
 
-  // Poll Live Attendance when a session is active - can we use socket io instead?
   useEffect(() => {
     let interval: any;
     if (!activeSessionId) return;
-   
-    fetchLiveAttendance(); 
-    interval = setInterval(fetchLiveAttendance, 3000); 
-    
+    fetchLiveAttendance();
+    interval = setInterval(fetchLiveAttendance, 3000);
     return () => clearInterval(interval);
   }, [activeSessionId]);
 
   const fetchLiveAttendance = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/live`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/live`, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
       });
-      if (res.ok) {
-        setLiveAttendance(await res.json());
-      }
-    } catch (err) {
-      console.error("Failed to fetch live attendance", err);
-    }
+      if (res.ok) setLiveAttendance(await res.json());
+    } catch (err) { console.error("Failed to fetch live attendance", err); }
   };
 
-  // Start Session
   const handleStartSession = async () => {
-    if (!timetableId) {
-      setMessage("Please select a class schedule.");
-      return;
-    }
-    
-    setMessage("Starting session...");
+    if (!timetableId) { setMessage("Please select a class."); return; }
+    setMessage("Starting...");
     try {
       const res = await fetch("http://localhost:5000/api/teacher/session/start", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
+        method: "POST", 
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ timetableId, teacherId: user.id })
       });
-      
       const data = await res.json();
-      if (res.ok) {
-        setActiveSessionId(data.id);
-        setMessage("✅ Class is LIVE! Students can now scan the QR code.");
-      } else if (data.session) {
-        setActiveSessionId(data.session.id);
-        setMessage("✅ Resumed existing active class.");
-      } else {
-        setMessage(`❌ Error: ${data.message || 'Failed to start'}`);
-      }
-    } catch (err) {
-      setMessage("❌ Backend is offline. Cannot start class.");
-    }
+      if (res.ok) { setActiveSessionId(data.id); setMessage("✅ Class is LIVE!"); }
+      else if (data.session) { setActiveSessionId(data.session.id); setMessage("✅ Resumed existing class."); }
+      else { setMessage(`❌ ${data.message || 'Failed'}`); }
+    } catch { setMessage("❌ Backend offline."); }
   };
 
-  // Stop Session
   const handleStopSession = async () => {
     if (!activeSessionId) return;
-    if (!window.confirm("Are you sure you want to stop this class? Students will no longer be able to scan.")) return;
-
+    if (!window.confirm("Stop this class?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/stop`, {
-        method: "POST",
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await fetch(`http://localhost:5000/api/teacher/session/${activeSessionId}/stop`, { 
+        method: "POST", 
+        headers: { 'Authorization': `Bearer ${token}` } 
       });
-      if (res.ok) {
-        setActiveSessionId(null);
-        setLiveAttendance([]);
-        setMessage("🛑 Class has been closed successfully.");
-      }
-    } catch (err) {
-      setMessage("❌ Failed to stop class.");
-    }
+      if (res.ok) { setActiveSessionId(null); setLiveAttendance([]); setMessage("🛑 Class closed."); }
+    } catch { setMessage("❌ Failed to stop."); }
   };
 
+  const tabs = [
+    { key: 'CLASS' as const, label: 'Active Class', icon: <Zap size={15} /> },
+    { key: 'HISTORY' as const, label: 'Past Sessions', icon: <History size={15} /> },
+  ];
+
+  const filteredHistory = history.filter(s =>
+    s.timetable?.subject?.name?.toLowerCase().includes(filter.toLowerCase()) ||
+    s.timetable?.room?.name?.toLowerCase().includes(filter.toLowerCase()) ||
+    s.timetable?.dayOfWeek?.toLowerCase().includes(filter.toLowerCase())
+  );
+
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8 mt-10">
-      
-            {/* Tab Navigation */}
-      <div className="flex gap-4 border-b border-gray-200 pb-4 mb-6 justify-center mt-6">
-        <button onClick={() => setActiveTab('CLASS')} 
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'CLASS' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <PlayCircle size={20} /> Active Class
-        </button>
-        <button onClick={() => setActiveTab('HISTORY')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <Users size={20} /> Past Sessions
-        </button>
+    <div style={{ maxWidth: '64rem', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="animate-slide-up" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.03em' }} className="gradient-text">Teacher Dashboard</h1>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Manage your classes and view attendance</p>
       </div>
 
-      {/* TAB 1: ACTIVE CLASS (Your existing layout) */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+        <div className="tab-bar animate-slide-up-delay-1">
+          {tabs.map(tab => (
+            <button 
+              key={tab.key} 
+              onClick={() => setActiveTab(tab.key)} 
+              className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {activeTab === 'CLASS' && (
-        <div className="grid md:grid-cols-2 gap-8">
-          
-          {/* Left Col: Control Panel */}
-          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col gap-6 h-fit">
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
-               <ShieldCheck className="text-blue-500 shrink-0 mt-1" />
-               <p className="text-sm text-blue-800">
-                 Select your class below and click Start. The live feed will appear as students scan the QR code.
-               </p>
+        <div className="animate-slide-up" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ 
+              padding: '1rem', borderRadius: '0.875rem', 
+              background: 'rgba(99, 102, 241, 0.05)', 
+              border: '1px solid rgba(99, 102, 241, 0.1)', 
+              display: 'flex', gap: '0.75rem', alignItems: 'flex-start' 
+            }}>
+              <ShieldCheck size={18} style={{ color: 'var(--accent-1)', marginTop: '0.125rem', flexShrink: 0 }} />
+              <p style={{ fontSize: '0.8125rem', color: 'var(--accent-1)', fontWeight: 500 }}>Select your class and click Start. Students will scan the QR code to mark attendance.</p>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Select Class</label>
-              <select 
-                value={timetableId} 
-                onChange={(e) => setTimetableId(e.target.value)}
-                disabled={activeSessionId !== null}
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium"
-              >
+              <label className="label-premium">Select Class</label>
+              <select value={timetableId} onChange={e => setTimetableId(e.target.value)} disabled={activeSessionId !== null} className="input-premium">
                 <option value="" disabled>-- No classes found --</option>
                 {timetables.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.dayOfWeek} • {t.startTime}-{t.endTime} • {t.subject?.name} ({t.room?.name})
-                  </option>
+                  <option key={t.id} value={t.id}>{t.dayOfWeek} · {t.startTime}-{t.endTime} · {t.subject?.name} ({t.room?.name})</option>
                 ))}
               </select>
             </div>
 
-            <div className="flex flex-col gap-4 pt-2">
-              {!activeSessionId ? (
-                <button 
-                  onClick={handleStartSession}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
-                >
-                  <PlayCircle size={20} /> Start Session
-                </button>
-              ) : (
-                <button 
-                  onClick={handleStopSession}
-                  className="w-full flex items-center justify-center gap-2 py-4 bg-red-100 text-red-700 font-bold rounded-xl hover:bg-red-200 transition-colors cursor-pointer"
-                >
-                  <Square size={20} /> Stop Class & Lock Scans
-                </button>
-              )}
-
-
-            </div>
+            {!activeSessionId ? (
+              <button onClick={handleStartSession} className="btn-primary" style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.9375rem' }}>
+                <PlayCircle size={18} /> Start Session
+              </button>
+            ) : (
+              <button onClick={handleStopSession} className="btn-danger" style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.9375rem' }}>
+                <Square size={18} /> Stop Class & Lock
+              </button>
+            )}
 
             {message && (
-              <div className="text-center font-medium mt-2 text-slate-700 animate-in fade-in">
+              <div style={{ textAlign: 'center', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', padding: '0.75rem', borderRadius: '0.75rem', background: 'var(--bg-primary)' }}>
                 {message}
               </div>
             )}
           </div>
 
-          {/* Right Col: Live Feed */}
-          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 flex flex-col min-h-[500px]">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-              <Users className="text-indigo-600" size={24} />
-              <h2 className="text-xl font-bold text-slate-800">Live Attendance</h2>
+          <div className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', minHeight: '28rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-glass)' }}>
+              <Users size={20} style={{ color: 'var(--accent-1)' }} />
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, flex: 1 }}>Live Attendance</h2>
               {activeSessionId && (
-                <span className="ml-auto flex items-center gap-2 text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span> LIVE
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.6875rem', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.08)', padding: '0.375rem 0.75rem', borderRadius: '9999px' }}>
+                  <span className="live-dot" /> LIVE
                 </span>
               )}
             </div>
 
             {!activeSessionId ? (
-              <div className="flex-1 flex items-center justify-center text-center text-gray-400 p-8 border-2 border-dashed border-gray-100 rounded-2xl">
-                Start a session to see students appear here in real-time.
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', border: '2px dashed var(--border-glass)', borderRadius: '1rem', padding: '2rem', textAlign: 'center', fontSize: '0.875rem' }}>
+                Start a session to see students here.
               </div>
             ) : liveAttendance.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-center text-gray-400 p-8 border-2 border-dashed border-gray-100 rounded-2xl">
-                Waiting for first student scan...
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', border: '2px dashed var(--border-glass)', borderRadius: '1rem', padding: '2rem', textAlign: 'center', fontSize: '0.875rem' }}>
+                Waiting for first scan...
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                {liveAttendance.map((record) => (
-                  <div key={record.id} className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between animate-in fade-in slide-in-from-right-4">
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {liveAttendance.map(record => (
+                  <div key={record.id} style={{ padding: '0.875rem', borderRadius: '0.75rem', background: 'var(--bg-primary)', border: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'slideRight 0.3s ease' }}>
                     <div>
-                      <p className="font-bold text-slate-800">{record.student.name}</p>
-                      <p className="text-xs text-slate-500">{record.student.email}</p>
+                      <p style={{ fontWeight: 600, fontSize: '0.875rem' }}>{record.student.name}</p>
+                      <p style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{record.student.email}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md">
-                        {record.student.batch || 'All'}
-                      </span>
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {new Date(record.markedAt).toLocaleTimeString()}
-                      </p>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className="badge badge-purple">{record.student.batch || 'All'}</span>
+                      <p style={{ fontSize: '0.625rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{new Date(record.markedAt).toLocaleTimeString()}</p>
                     </div>
                   </div>
                 ))}
@@ -248,57 +200,34 @@ const TeacherDashboard = () => {
         </div>
       )}
 
-      {/* TAB 2: HISTORY (New feature!) */}
       {activeTab === 'HISTORY' && (
-         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 min-h-[500px] animate-in fade-in slide-in-from-bottom-4">
-          {/* filter section - search by year,room_no,semester and date of class */}
-          <div className='flex-1 flex w-full m-auto my-10'>
-            <input type="text" value={filter} onChange={(e)=>setFilter(e.target.value)} className='w-full py-2 px-3 mx-auto outline:none focus:outline-none border-2 border-slate-300 rounded-md' placeholder="Search - give any valid text to search" />
-          </div>
-           
-           {history.length === 0 ? (
-             <div className="text-center text-gray-400 p-12 border-2 border-dashed border-gray-100 rounded-2xl">
-               No past classes found.
-             </div>
-           ) : (
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-               {history.filter(s=>s.timetable?.subject?.name?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.room?.name?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.dayOfWeek?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.startTime?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.endTime?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.year?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.semester?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.roomNo?.toLowerCase().includes(filter.toLowerCase()) || s.timetable?.date?.toLowerCase().includes(filter.toLowerCase())).map(session => (
-                 <div key={session.id} className="p-6 border border-gray-200 rounded-2xl flex flex-col justify-between hover:shadow-lg transition-all bg-slate-50 hover:-translate-y-1">
-                   <div>
-                     <h3 className="font-bold text-xl text-slate-800 line-clamp-1" title={session.timetable?.subject?.name}>
-                       {session.timetable?.subject?.name}
-                     </h3>
-                     <p className="text-sm font-medium text-gray-500 mt-1">
-                       Room: <span className="text-slate-700">{session.timetable?.room?.name}</span>
-                     </p>
-                   </div>
-                   
-                   <div className="mt-6 pt-4 border-t border-gray-200 flex justify-between items-end">
-                     <div>
-                       <p className="text-xs text-gray-400 mb-1">
-                         {new Date(session.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                       </p>
-                       <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold">
-                         {session._count?.attendances} Attended
-                       </span>
-                     </div>
-                     
-                     {/* The Magic Excel Download Button for past classes! */}
-                     <button 
-                       onClick={() => window.open(`http://localhost:5000/api/teacher/export/session/${session.id}?token=${token}`, '_blank')}
-                       className="p-3 bg-green-100 text-green-700 rounded-xl hover:bg-green-200 transition-colors cursor-pointer shadow-sm"
-                       title="Download Excel Sheet"
-                     >
-                       <Download size={20} />
-                     </button>
-                   </div>
-                 </div>
-               ))}
-             </div>
-           )}
-         </div>
+        <div className="glass-card animate-slide-up" style={{ padding: '2rem', minHeight: '28rem' }}>
+          <input type="text" value={filter} onChange={e => setFilter(e.target.value)} className="input-premium" placeholder="Search by subject, room, day..." style={{ marginBottom: '1.5rem' }} />
+          {history.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)', border: '2px dashed var(--border-glass)', borderRadius: '1rem' }}>No past classes found.</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: '0.75rem' }}>
+              {filteredHistory.map(session => (
+                <div key={session.id} className="glass-card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.timetable?.subject?.name}</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Room: <span style={{ color: 'var(--text-primary)' }}>{session.timetable?.room?.name}</span></p>
+                  </div>
+                  <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div>
+                      <p style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>{new Date(session.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <span className="badge badge-purple" style={{ marginTop: '0.375rem' }}>{session._count?.attendances} Attended</span>
+                    </div>
+                    <button onClick={() => window.open(`http://localhost:5000/api/teacher/export/session/${session.id}?token=${token}`, '_blank')} style={{ padding: '0.625rem', borderRadius: '0.625rem', background: 'rgba(16, 185, 129, 0.08)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.12)', cursor: 'pointer', transition: 'all 0.2s' }} title="Download Excel">
+                      <Download size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
-
     </div>
   );
 };

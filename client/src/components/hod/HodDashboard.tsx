@@ -1,541 +1,279 @@
 import React, { useState, useEffect } from 'react';
-import { Building, BookOpen, Calendar, CheckCircle } from 'lucide-react';
+import { Building, BookOpen, Calendar, CheckCircle, Trash2, Download, Pencil, LayoutGrid } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import Select from 'react-select';
 
+const selectLightStyles = {
+  control: (base: any, state: any) => ({
+    ...base, background: '#f8f9fc', borderColor: state.isFocused ? '#6366f1' : 'rgba(0,0,0,0.06)',
+    borderRadius: '0.875rem', padding: '0.25rem 0.25rem', boxShadow: state.isFocused ? '0 0 0 3px rgba(99,102,241,0.08)' : 'none',
+    '&:hover': { borderColor: 'rgba(99,102,241,0.3)' }, minHeight: '2.75rem',
+  }),
+  menu: (base: any) => ({ ...base, background: 'white', border: '1px solid rgba(0,0,0,0.06)', borderRadius: '0.75rem', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }),
+  option: (base: any, state: any) => ({
+    ...base, background: state.isFocused ? 'rgba(99,102,241,0.06)' : 'transparent',
+    color: '#1e1e2e', fontSize: '0.8125rem', cursor: 'pointer', '&:active': { background: 'rgba(99,102,241,0.1)' },
+  }),
+  singleValue: (base: any) => ({ ...base, color: '#1e1e2e', fontSize: '0.8125rem' }),
+  input: (base: any) => ({ ...base, color: '#1e1e2e', fontSize: '0.8125rem' }),
+  placeholder: (base: any) => ({ ...base, color: '#9ca3af', fontSize: '0.8125rem' }),
+  indicatorSeparator: () => ({ display: 'none' }),
+  dropdownIndicator: (base: any) => ({ ...base, color: '#6b7280', '&:hover': { color: '#1e1e2e' } }),
+};
 
 const HodDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'ROOM' | 'SUBJECT' | 'TIMETABLE' | 'MASTER_TIMETABLE'>('ROOM');
+  const [activeTab, setActiveTab] = useState<'ROOM' | 'SUBJECT' | 'TIMETABLE' | 'MASTER_TIMETABLE'>('MASTER_TIMETABLE');
   const [statusMsg, setStatusMsg] = useState('');
   const [timeTable, setTimeTable] = useState<any[]>([]);
   const [isEditSubject, setIsEditSubject] = useState(false);
   const [editSubjectId, setEditSubjectId] = useState<string | null>(null);
-
-    // Search States
-  const [searchRoom, setSearchRoom] = useState('');
-  const [searchSubject, setSearchSubject] = useState('');
   const [searchTimetable, setSearchTimetable] = useState('');
-  const [searchTeacherForm,setSearchTeacherForm] = useState('');
-  const [searchRoomForm,setSearchRoomForm] = useState('');
-  const [searchSubjectForm,setSearchSubjectForm] = useState('');
-  
-
-  // Data for smart dropdowns
   const [teachers, setTeachers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
 
-  // console.log("rooms",Object.entries(rooms));
-
   const token = localStorage.getItem('qr_token') || '';
   const user = JSON.parse(localStorage.getItem('qr_user') || '{}');
   const departmentId = user.departmentId || '';
-
-  // handle delete
-  const handleDelete = async (t: any) => {
-    // making sure the user is sure about deleting the schedule
-    if (!window.confirm("Are you sure you want to delete this schedule?")) return;
-
-    try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const query = `?departmentId=${departmentId}`;
-
-      const res = await fetch(`http://localhost:5000/api/hod/timetable${query}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          subjectId: t.subjectId,
-          teacherId: t.teacherId,
-          roomId: t.roomId,
-          dayOfWeek: t.dayOfWeek,
-          startTime: t.startTime,
-          endTime: t.endTime,
-          batch: t.batch || null
-        })
-      });
-
-      if (res.ok) {
-        setStatusMsg("Schedule deleted successfully");
-        // deleting the schedule from the state variable
-        setTimeTable(timeTable.filter((item) => item.id !== t.id));
-      } else {
-        const errorData = await res.json();
-        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
-      }
-    } catch (error) {
-      setStatusMsg("Error: Failed to delete schedule");
-    }
-  }
-
-  const handleDownloadQr = (roomId: string,roomName:string) => {
-    const canvas = document.getElementById(`qr-${roomId}`) as HTMLCanvasElement;
-
-    const url = canvas.toDataURL("image/jpeg",0.92);
-    const link = document.createElement("a");
-    link.download = `${roomName}.jpeg`;
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-  }
-
-  const handleDeleteRoom =async(roomId:string,departmentId:string) => {
-    // making sure the user is sure about deleting the room
-    if (!window.confirm("Are you sure you want to delete this room?")) return;
-    try{
-      const res = await fetch(`http://localhost:5000/api/hod/rooms/${roomId}?departmentId=${departmentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (res.ok) {
-        setStatusMsg("Room deleted successfully");
-        // deleting the room from the state variable
-        setRooms(rooms.filter((room) => room.id !== roomId));
-      } else {
-        const errorData = await res.json();
-        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
-      }
-    }catch(error){
-      setStatusMsg("Error: Failed to delete room");
-    }
-  }
-
-  const handleDeleteSubject =async(subjectId:string,departmentId:string) => {
-    // making sure the user is sure about deleting the subject
-    if (!window.confirm("Are you sure you want to delete this subject?")) return;
-    try{
-      const res = await fetch(`http://localhost:5000/api/hod/subjects/${subjectId}?departmentId=${departmentId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (res.ok) {
-        setStatusMsg("Subject deleted successfully");
-        // deleting the subject from the state variable
-        setSubjects(subjects.filter((subject) => subject.id !== subjectId));
-      } else {
-        const errorData = await res.json();
-        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
-      }
-    }catch(error){
-      setStatusMsg("Error: Failed to delete subject");
-    }
-  }
-
-  const handleEditSubject =async (subject:any) => {
-    // console.log("This is the subject",subject);
-    // here in the edit modal i want to set the value of each element according to the subject object
-    setIsEditSubject(true);
-    setEditSubjectId(subject.id);
-    Object.entries(subject).forEach(([key,value]:[string,any]) => {
-      
-      // conditional checks  
-      if(key=='name'|| key=='code'){
-        (document.getElementById(key) as HTMLInputElement).value = value;
-        // console.log(key,value);
-      }
-    })
-
-  }
-
   const query = `?departmentId=${departmentId}`;
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
+  const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  const handleDelete = async (t: any) => {
+    if (!window.confirm("Delete this schedule?")) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/hod/timetable${query}`, {
+        method: 'DELETE', headers,
+        body: JSON.stringify({ subjectId: t.subjectId, teacherId: t.teacherId, roomId: t.roomId, dayOfWeek: t.dayOfWeek, startTime: t.startTime, endTime: t.endTime, batch: t.batch || null })
+      });
+      if (res.ok) { setStatusMsg("Schedule deleted"); setTimeTable(timeTable.filter(i => i.id !== t.id)); }
+      else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
+    } catch { setStatusMsg("Error: Failed to delete"); }
+  };
+
+  const handleDownloadQr = (roomId: string, roomName: string) => {
+    const canvas = document.getElementById(`qr-${roomId}`) as HTMLCanvasElement;
+    const url = canvas.toDataURL("image/jpeg", 0.92);
+    const link = document.createElement("a"); link.download = `${roomName}.jpeg`; link.href = url;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+
+  const handleDeleteRoom = async (roomId: string, deptId: string) => {
+    if (!window.confirm("Delete this room?")) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/hod/rooms/${roomId}?departmentId=${deptId}`, { method: 'DELETE', headers });
+      if (res.ok) { setStatusMsg("Room deleted"); setRooms(rooms.filter(r => r.id !== roomId)); }
+      else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
+    } catch { setStatusMsg("Error: Failed to delete room"); }
+  };
+
+  const handleDeleteSubject = async (subjectId: string, deptId: string) => {
+    if (!window.confirm("Delete this subject?")) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/hod/subjects/${subjectId}?departmentId=${deptId}`, { method: 'DELETE', headers });
+      if (res.ok) { setStatusMsg("Subject deleted"); setSubjects(subjects.filter(s => s.id !== subjectId)); }
+      else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
+    } catch { setStatusMsg("Error: Failed to delete subject"); }
+  };
+
+  const handleEditSubject = (subject: any) => {
+    setIsEditSubject(true); setEditSubjectId(subject.id);
+    Object.entries(subject).forEach(([key, value]: [string, any]) => {
+      if (key === 'name' || key === 'code') (document.getElementById(key) as HTMLInputElement).value = value;
+    });
+  };
 
   useEffect(() => {
-    // fetching the timetable from the backend
-
-    const fetchData =async() => {
-
-    const [teachersRes, roomsRes, subjectsRes, timeTableRes] = await Promise.all([
-      fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers }),
-      fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers }),
-      fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers }),
-      fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers })
-    ])
-
-    if (teachersRes.ok) setTeachers(await teachersRes.json());
-    if (roomsRes.ok) setRooms(await roomsRes.json());
-    if (subjectsRes.ok) setSubjects(await subjectsRes.json());
-    if (timeTableRes.ok) setTimeTable(await timeTableRes.json());
-  } 
-  // calling the fetchData function
-  fetchData();
-  }, [])
+    const fetchData = async () => {
+      const [teachersRes, roomsRes, subjectsRes, timeTableRes] = await Promise.all([
+        fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers }),
+        fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers }),
+        fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers }),
+        fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers })
+      ]);
+      if (teachersRes.ok) setTeachers(await teachersRes.json());
+      if (roomsRes.ok) setRooms(await roomsRes.json());
+      if (subjectsRes.ok) setSubjects(await subjectsRes.json());
+      if (timeTableRes.ok) setTimeTable(await timeTableRes.json());
+    };
+    fetchData();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent, endpoint: string) => {
-    e.preventDefault();
-    setStatusMsg("Saving to database...");
-
+    e.preventDefault(); setStatusMsg("Saving...");
     const formData = new FormData(e.target as HTMLFormElement);
     const payload = Object.fromEntries(formData.entries());
     let method = 'POST';
-    if(isEditSubject){
-      method = 'PATCH';
-      payload.id = editSubjectId;
-    }
+    if (isEditSubject) { method = 'PATCH'; payload.id = editSubjectId; }
     try {
-      const res = await fetch(`http://localhost:5000/api/hod/${endpoint}?departmentId=${departmentId}`, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
+      const res = await fetch(`http://localhost:5000/api/hod/${endpoint}?departmentId=${departmentId}`, { method, headers, body: JSON.stringify(payload) });
       if (res.ok) {
-        setStatusMsg(`Success! Saved ${endpoint} to database.`);
-        (e.target as HTMLFormElement).reset(); // Clear the form
-        // get all rooms
-        if(endpoint==="rooms"){
-          const roomsRes = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers });
-          if (roomsRes.ok) setRooms(await roomsRes.json());
-        }else if(endpoint==="subjects"){
-          const subjectsRes = await fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers });
-          if (subjectsRes.ok) setSubjects(await subjectsRes.json());
-          setIsEditSubject(false);
-          setEditSubjectId(null);
-        }else if(endpoint==="teachers"){
-          const teachersRes = await fetch(`http://localhost:5000/api/hod/teachers${query}`, { headers });
-          if (teachersRes.ok) setTeachers(await teachersRes.json());
-        }else if(endpoint==="timetable"){
-          const timeTableRes = await fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers });
-          if (timeTableRes.ok) setTimeTable(await timeTableRes.json());
-        }
-        
-      } else {
-        const errorData = await res.json();
-        setStatusMsg(`Error: ${errorData.message || errorData.error}`);
-      }
-    } catch (err) {
-      setStatusMsg("Backend server is offline.");
-    }
+        setStatusMsg(`✓ Saved ${endpoint}`);
+        (e.target as HTMLFormElement).reset();
+        if (endpoint === "rooms") { const r = await fetch(`http://localhost:5000/api/hod/rooms${query}`, { headers }); if (r.ok) setRooms(await r.json()); }
+        else if (endpoint === "subjects") { const r = await fetch(`http://localhost:5000/api/hod/subjects${query}`, { headers }); if (r.ok) setSubjects(await r.json()); setIsEditSubject(false); setEditSubjectId(null); }
+        else if (endpoint === "timetable") { const r = await fetch(`http://localhost:5000/api/hod/timetable${query}`, { headers }); if (r.ok) setTimeTable(await r.json()); }
+      } else { const d = await res.json(); setStatusMsg(`Error: ${d.message || d.error}`); }
+    } catch { setStatusMsg("Backend server is offline."); }
   };
 
-  const daysOfWeek = {
-    'MONDAY': 'Monday',
-    'TUESDAY': 'Tuesday',
-    'WEDNESDAY': 'Wednesday',
-    'THURSDAY': 'Thursday',
-    'FRIDAY': 'Friday',
-    'SATURDAY': 'Saturday',
-    'SUNDAY': 'Sunday'
-  };
+  const tabs = [
+    { key: 'MASTER_TIMETABLE' as const, label: 'Schedule', icon: <LayoutGrid size={15} /> },
+    { key: 'ROOM' as const, label: 'Rooms', icon: <Building size={15} /> },
+    { key: 'SUBJECT' as const, label: 'Subjects', icon: <BookOpen size={15} /> },
+    { key: 'TIMETABLE' as const, label: 'New Entry', icon: <Calendar size={15} /> },
+  ];
+
+  const filteredTimetable = timeTable.filter(t =>
+    t.subject?.name?.toLowerCase().includes(searchTimetable.toLowerCase()) ||
+    t.teacher?.name?.toLowerCase().includes(searchTimetable.toLowerCase()) ||
+    t.room?.name?.toLowerCase().includes(searchTimetable.toLowerCase()) ||
+    t.dayOfWeek?.toLowerCase().includes(searchTimetable.toLowerCase())
+  );
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <div>
-        <h1 className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-500">
-          HOD Control Center
-        </h1>
-        <p className="text-gray-500 mt-2 text-lg">Manage campus infrastructure and active schedules.</p>
+    <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="animate-slide-up">
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.03em' }} className="gradient-text">HOD Control Center</h1>
+        <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>Manage campus infrastructure and active schedules.</p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-4 border-b border-gray-200 pb-4">
-        <button onClick={() => { setActiveTab('MASTER_TIMETABLE'); setStatusMsg(''); }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'MASTER_TIMETABLE' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <Calendar size={20} /> MASTER TIMETABLE
-        </button>
-        <button onClick={() => { setActiveTab('ROOM'); setStatusMsg(''); }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'ROOM' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <Building size={20} /> Add Classroom
-        </button>
-        <button onClick={() => { setActiveTab('SUBJECT'); setStatusMsg(''); }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'SUBJECT' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <BookOpen size={20} /> Add Subject
-        </button>
-        <button onClick={() => { setActiveTab('TIMETABLE'); setStatusMsg(''); }}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${activeTab === 'TIMETABLE' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-          <Calendar size={20} /> Master Timetable
-        </button>
+      <div className="tab-bar animate-slide-up-delay-1" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+        {tabs.map(tab => (
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setStatusMsg(''); }} className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}>{tab.icon} {tab.label}</button>
+        ))}
       </div>
 
-      {/* Form Container */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-
-        {/* --- MASTER TIMETABLE VIEW --- */}
-        {
-          activeTab === 'MASTER_TIMETABLE' && (
-            <>
-              <div className="mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
-                {/* search menu start*/}
-                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 border-t pt-8 gap-4">
-                  <h3 className="text-xl font-semibold text-slate-800">Current Master Schedule</h3>
-                  <input 
-                    type="text" 
-                    placeholder="Search teacher, room, subject, or day..." 
-                    value={searchTimetable}
-                    onChange={(e) => setSearchTimetable(e.target.value)}
-                    className="p-2 px-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-80 text-sm"
-                  />
-                </div>
-
-
-                {timeTable.length === 0 ? (
-                  <div className="text-center p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-500">
-                    No schedules have been created yet.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-gray-200">
-                    <table className="w-full text-left text-sm text-gray-600">
-                      <thead className="bg-slate-50 text-slate-800 font-medium border-b border-gray-200">
-                        <tr>
-                          <th className="p-4">Day</th>
-                          <th className="p-4">Time</th>
-                          <th className="p-4">Subject</th>
-                          <th className="p-4">Teacher</th>
-                          <th className="p-4">Room</th>
-                          <th className="p-4">Batch</th>
-                          <th className="p-4 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {timeTable.filter((t)=> (t.subject?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.teacher?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.room?.name.toLowerCase().includes(searchTimetable.toLowerCase()) || t.dayOfWeek.toLowerCase().includes(searchTimetable.toLowerCase()) || t.startTime.toLowerCase().includes(searchTimetable.toLowerCase()) || t.endTime.toLowerCase().includes(searchTimetable.toLowerCase()))).map((t, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-4 font-medium text-slate-700">{t.dayOfWeek}</td>
-                            <td className="p-4">{t.startTime} - {t.endTime}</td>
-                            <td className="p-4">
-                              <span className="font-semibold text-indigo-700">{t.subject?.code}</span>
-                              <br /><span className="text-xs text-gray-400">{t.subject?.name}</span>
-                            </td>
-                            <td className="p-4">{t.teacher?.name}</td>
-                            <td className="p-4 font-mono">{t.room?.name}</td>
-                            <td className="p-4">
-                              {t.batch ? (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-bold">{t.batch}</span>
-                              ) : (
-                                <span className="text-gray-400 italic text-xs">All</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-right">
-                              <button
-                                onClick={() => handleDelete(t)}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors font-medium text-xs"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          )
-        }
-
-        {/* ROOM FORM AND QR CODES*/}
-        {activeTab === 'ROOM' && (
-          <div className='space-y-10 animation-in fade-in slide-in-from-bottom-4 duration-500'>
-          <form onSubmit={(e) => handleSubmit(e, 'rooms')} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-xl font-semibold text-slate-800 mb-4">Register a Physical Room</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Room Name (e.g. L201)</label>
-              <input name="name" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
-              <input name="capacity" type="number" required defaultValue={60} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Static QR Payload string</label>
-              <input name="qrPayload" required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. secret-room-code-123" />
-            </div>
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">Create Room</button>
-          </form>
-          {/* qr code galary will be here */}
-          <div className='border-t border-gray-100 pt-8'>
-            <h3 className='text-xl font-semibold text-slate-800'>
-              Existing Rooms & Qr Codes
-            </h3>
-            {rooms.length===0 ? (
-                <div className="text-gray-500 italic text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  No rooms registered yet.
-                </div>
-            ):(<>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-6'>
-              {rooms.map((r,index)=>(
-                <div key={index} className='border border-gray-200 p-6 rouned-2xl flex flex-col items-center justify-center bg-gray-50 text-center gap-4 hover:shadow-md transition-shadow relative-group'>
-                  {/* QR code graphic */}
-                                   
-                  <div className='p-4 bg-white rounded-xl shadow-sm border border-gray-100 group-hover:scale-105 transition-transform duration-300'>
-                    <QRCodeCanvas id={`qr-${r.id}`} value={String(r.qrPayload)} size={140} fgColor="#1e293b" />
-                  </div>
-                  
-                  {/* Room Info */}
-                  <div>
-                    <h4 className="font-bold text-2xl text-slate-800">{r.name}</h4>
-                    <p className="text-sm text-gray-500 font-medium">Capacity: {r.capacity} students</p>
-                    <p className="text-xs text-gray-400 font-mono mt-2 bg-gray-200 px-2 py-1 rounded-md">
-                      {r.qrPayload}
-                    </p>
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex gap-2 w-full mt-2">
-                    <button onClick={() => handleDownloadQr(r.id, r.name)} className="flex-1 py-2 bg-indigo-100 text-indigo-700 font-bold text-sm rounded-lg hover:bg-indigo-200 transition-colors">
-                      Download
-                    </button>
-                    <button onClick={() => handleDeleteRoom(r.id,r.departmentId)} className="flex-1 py-2 bg-red-100 text-red-700 font-bold text-sm rounded-lg hover:bg-red-200 transition-colors">
-                      Delete
-                    </button>
-                  </div>
-
-                </div>
-              ))}
-            </div>
-            </>)}
+      {/* MASTER TIMETABLE */}
+      {activeTab === 'MASTER_TIMETABLE' && (
+        <div className="animate-slide-up">
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e' }}>Master Schedule</h3>
+            <input type="text" placeholder="Search..." value={searchTimetable} onChange={e => setSearchTimetable(e.target.value)} className="input-premium" style={{ maxWidth: '20rem' }} />
           </div>
-          
-
-        </div>
-        )}
-
-        {/* SUBJECT FORM & LIST */}
-        {activeTab === 'SUBJECT' && (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <form onSubmit={(e) => handleSubmit(e, 'subjects')} className="space-y-5">
-              <h3 className="text-xl font-semibold text-slate-800 mb-4">Register a Course</h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
-                <input name="code" id='code' required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. TCS-601" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
-                <input name="name" id='name' required className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. Data Structures" />
-              </div>
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">{isEditSubject ? "Update Subject" : "Create Subject"}</button>
-            </form>
-
-            {/* List of Existing Subjects */}
-            <div className="border-t border-gray-100 pt-8">
-              <h3 className="text-xl font-semibold text-slate-800 mb-6">Existing Subjects</h3>
-              {subjects.length === 0 ? (
-                <div className="text-gray-500 italic text-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  No subjects registered yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {subjects.map((sub: any) => (
-                    <div key={sub.id} className="border border-gray-200 p-5 rounded-2xl bg-white flex justify-between items-center shadow-sm hover:shadow-md transition-shadow">
-                      <div>
-                        <h4 className="font-bold text-lg text-slate-800">{sub.code}</h4>
-                        <p className="text-sm text-gray-500">{sub.name}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleEditSubject(sub)} className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors">
-                          Edit
-                        </button>
-                        <button onClick={() => handleDeleteSubject(sub.id, sub.departmentId)} className="px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-lg hover:bg-red-100 transition-colors">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
+          {timeTable.length === 0 ? (
+            <div className="glass-card" style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No schedules created yet.</div>
+          ) : (
+            <div className="glass-card" style={{ overflow: 'hidden' }}>
+              <table className="table-premium">
+                <thead><tr><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Room</th><th>Batch</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+                <tbody>
+                  {filteredTimetable.map((t, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 600, color: '#1e1e2e' }}>{t.dayOfWeek}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem' }}>{t.startTime} - {t.endTime}</td>
+                      <td><span style={{ fontWeight: 600, color: '#6366f1' }}>{t.subject?.code}</span><br /><span style={{ fontSize: '0.6875rem', color: '#6b7280' }}>{t.subject?.name}</span></td>
+                      <td>{t.teacher?.name}</td>
+                      <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8125rem' }}>{t.room?.name}</td>
+                      <td>{t.batch ? <span className="badge badge-blue">{t.batch}</span> : <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>All</span>}</td>
+                      <td style={{ textAlign: 'right' }}><button onClick={() => handleDelete(t)} className="btn-danger" style={{ padding: '0.375rem 0.75rem', fontSize: '0.75rem' }}><Trash2 size={13} /></button></td>
+                    </tr>
                   ))}
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ROOM */}
+      {activeTab === 'ROOM' && (
+        <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <form onSubmit={e => handleSubmit(e, 'rooms')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e', marginBottom: '0.5rem' }}>Register a Room</h3>
+              <div><label className="label-premium">Room Name</label><input name="name" required className="input-premium" placeholder="e.g. L201" /></div>
+              <div><label className="label-premium">Capacity</label><input name="capacity" type="number" required defaultValue={60} className="input-premium" /></div>
+              <div><label className="label-premium">Static QR Payload</label><input name="qrPayload" required className="input-premium" placeholder="e.g. secret-room-code-123" /></div>
+              <button type="submit" className="btn-primary" style={{ width: '100%' }}>Create Room</button>
+            </form>
           </div>
-        )}
-
-
-        {/* TIMETABLE FORM */}
-        {activeTab === 'TIMETABLE' && (
-          <form onSubmit={(e) => handleSubmit(e, 'timetable')} className="grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-xl font-semibold text-slate-800 mb-2 col-span-2">Link Data into a Schedule</h3>
-
-            <div className="col-span-2 md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Day of Week</label>
-              <select name="dayOfWeek" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                <option value="MONDAY">Monday</option><option value="TUESDAY">Tuesday</option><option value="WEDNESDAY">Wednesday</option>
-                <option value="THURSDAY">Thursday</option><option value="FRIDAY">Friday</option><option value="SATURDAY">Saturday</option>
-              </select>
-            </div>
-
-            <div className="col-span-2 md:col-span-1 grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                <input name="startTime" type="time" required className="w-full p-3 bg-gray-50 border rounded-xl outline-none" />
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e', marginBottom: '1rem' }}>Existing Rooms & QR Codes</h3>
+            {rooms.length === 0 ? (
+              <div className="glass-card" style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No rooms registered yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: '0.75rem' }}>
+                {rooms.map((r, i) => (
+                  <div key={i} className="glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem' }}>
+                    <div style={{ padding: '1rem', background: 'white', borderRadius: '0.75rem', border: '1px solid rgba(0,0,0,0.04)' }}>
+                      <QRCodeCanvas id={`qr-${r.id}`} value={String(r.qrPayload)} size={120} fgColor="#1e1e2e" bgColor="transparent" />
+                    </div>
+                    <div>
+                      <h4 style={{ fontWeight: 700, fontSize: '1.25rem', color: '#1e1e2e' }}>{r.name}</h4>
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>Capacity: {r.capacity}</p>
+                      <p style={{ fontSize: '0.6875rem', fontFamily: "'JetBrains Mono', monospace", color: '#6b7280', background: '#f1f5f9', padding: '0.25rem 0.5rem', borderRadius: '0.375rem', marginTop: '0.5rem' }}>{r.qrPayload}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <button onClick={() => handleDownloadQr(r.id, r.name)} className="btn-primary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}><Download size={13} /> Download</button>
+                      <button onClick={() => handleDeleteRoom(r.id, r.departmentId)} className="btn-danger" style={{ flex: 1, padding: '0.5rem', fontSize: '0.75rem' }}>Delete</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                <input name="endTime" type="time" required className="w-full p-3 bg-gray-50 border rounded-xl outline-none" />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SUBJECT */}
+      {activeTab === 'SUBJECT' && (
+        <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.5rem' }}>
+            <form onSubmit={e => handleSubmit(e, 'subjects')} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e' }}>Register a Course</h3>
+              <div><label className="label-premium">Course Code</label><input name="code" id="code" required className="input-premium" placeholder="e.g. TCS-601" /></div>
+              <div><label className="label-premium">Course Name</label><input name="name" id="name" required className="input-premium" placeholder="e.g. Data Structures" /></div>
+              <button type="submit" className="btn-primary" style={{ width: '100%' }}>{isEditSubject ? 'Update Subject' : 'Create Subject'}</button>
+            </form>
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e', marginBottom: '1rem' }}>Existing Subjects</h3>
+            {subjects.length === 0 ? (
+              <div className="glass-card" style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>No subjects registered yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '0.75rem' }}>
+                {subjects.map((sub: any) => (
+                  <div key={sub.id} className="glass-card" style={{ padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><h4 style={{ fontWeight: 700, color: '#6366f1' }}>{sub.code}</h4><p style={{ fontSize: '0.8125rem', color: '#6b7280' }}>{sub.name}</p></div>
+                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                      <button onClick={() => handleEditSubject(sub)} className="btn-ghost" style={{ padding: '0.375rem 0.625rem', fontSize: '0.75rem' }}><Pencil size={13} /></button>
+                      <button onClick={() => handleDeleteSubject(sub.id, sub.departmentId)} className="btn-danger" style={{ padding: '0.375rem 0.625rem', fontSize: '0.75rem' }}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-            {/* TEACHER DROPDOWN */}
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Teacher</label>
-              <Select 
-                name="teacherId"
-                options={teachers.map(t => ({ value: t.id, label: `${t.name} (${t.email})` }))}
-                placeholder="Search and select a teacher..."
-                className="text-sm rounded-xl"
-                required
-              />
-            </div>
+            )}
+          </div>
+        </div>
+      )}
 
-            {/* SUBJECT DROPDOWN */}
-            <div className="col-span-2 md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Subject</label>
-              <Select 
-                name="subjectId"
-                options={subjects.map((s: any) => ({ value: s.id, label: `${s.name} (${s.code})` }))}
-                placeholder="Search subjects..."
-                className="text-sm rounded-xl"
-                required
-              />
+      {/* TIMETABLE FORM */}
+      {activeTab === 'TIMETABLE' && (
+        <div className="glass-card animate-slide-up" style={{ padding: '1.5rem' }}>
+          <form onSubmit={e => handleSubmit(e, 'timetable')} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1e1e2e', gridColumn: 'span 2', marginBottom: '0.5rem' }}>Link Data into Schedule</h3>
+            <div><label className="label-premium">Day of Week</label><select name="dayOfWeek" className="input-premium">{['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'].map(d => <option key={d} value={d}>{d.charAt(0) + d.slice(1).toLowerCase()}</option>)}</select></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div><label className="label-premium">Start</label><input name="startTime" type="time" required className="input-premium" /></div>
+              <div><label className="label-premium">End</label><input name="endTime" type="time" required className="input-premium" /></div>
             </div>
-
-            {/* ROOM DROPDOWN */}
-            <div className="col-span-2 md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Room</label>
-              <Select 
-                name="roomId"
-                options={rooms.map(r => ({ value: r.id, label: `${r.name} (Cap: ${r.capacity})` }))}
-                placeholder="Search rooms..."
-                className="text-sm rounded-xl"
-                required
-              />
-            </div>
-
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Batch (Optional)</label>
-              <select name="batch" className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none">
-                <option value="">No Batch (Entire Class)</option>
-                <option value="Group-1">Group-1</option>
-                <option value="Group-2">Group-2</option>
-              </select>
-            </div>
-
-            <button type="submit" className="col-span-2 mt-4 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700">Publish to Timetable</button>
+            <div style={{ gridColumn: 'span 2' }}><label className="label-premium">Teacher</label><Select name="teacherId" options={teachers.map(t => ({ value: t.id, label: `${t.name} (${t.email})` }))} placeholder="Search teacher..." styles={selectLightStyles} required /></div>
+            <div><label className="label-premium">Subject</label><Select name="subjectId" options={subjects.map((s: any) => ({ value: s.id, label: `${s.name} (${s.code})` }))} placeholder="Search..." styles={selectLightStyles} required /></div>
+            <div><label className="label-premium">Room</label><Select name="roomId" options={rooms.map(r => ({ value: r.id, label: `${r.name} (Cap: ${r.capacity})` }))} placeholder="Search..." styles={selectLightStyles} required /></div>
+            <div style={{ gridColumn: 'span 2' }}><label className="label-premium">Batch (Optional)</label><select name="batch" className="input-premium"><option value="">Entire Class</option><option value="Group-1">Group-1</option><option value="Group-2">Group-2</option></select></div>
+            <button type="submit" className="btn-primary" style={{ gridColumn: 'span 2', marginTop: '0.5rem' }}>Publish to Timetable</button>
           </form>
-        )}
+        </div>
+      )}
 
-        {/* Status Message */}
-        {statusMsg && (
-          <div className="mt-6 p-4 bg-blue-50 text-blue-700 rounded-xl flex items-center gap-3">
-            <CheckCircle size={20} /> <p className="font-medium">{statusMsg}</p>
-          </div>
-        )}
-      </div>
+      {statusMsg && (
+        <div style={{ marginTop: '1rem', padding: '0.875rem 1.25rem', borderRadius: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600,
+          background: statusMsg.startsWith('Error') ? 'rgba(239,68,68,0.06)' : 'rgba(99,102,241,0.06)',
+          color: statusMsg.startsWith('Error') ? '#dc2626' : '#6366f1',
+          border: `1px solid ${statusMsg.startsWith('Error') ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)'}` }}>
+          <CheckCircle size={16} /> {statusMsg}
+        </div>
+      )}
     </div>
   );
 };
